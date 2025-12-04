@@ -441,7 +441,6 @@
                                     <div className="flex flex-col gap-2">
                                         <label className="text-xs uppercase font-bold text-nardo ml-1">Imagem da Promoção</label>
                                         
-                                        {/* CÓDIGO INSERIDO AQUI */}
                                         {promoConfig.imageUrl && (
                                             <div className="flex items-center gap-3 my-2 bg-gray-50 p-2 rounded-lg border border-border">
                                                 <img src={promoConfig.imageUrl} alt="Preview da Promoção" className="h-20 w-auto rounded border border-border object-cover" />
@@ -450,7 +449,6 @@
                                                 </Button>
                                             </div>
                                         )}
-                                        {/* FIM DO CÓDIGO INSERIDO */}
 
                                         <input type="file" accept="image/*" onChange={handlePromoImageChange} className="block w-full text-sm text-nardo file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-detail file:text-white hover:file:bg-gray-800 cursor-pointer" />
                                     </div>
@@ -595,12 +593,7 @@
             };
 
             const verifyConfigPassword = (inputPass) => {
-                // ==============================================================================
-                // SENHA DA PÁGINA DE CONFIGURAÇÕES - ALTERE A SENHA ABAIXO PARA MUDAR O ACESSO
-                // ==============================================================================
                 const configPassword = 'admin'; 
-                // ==============================================================================
-                
                 if (inputPass === configPassword) {
                     setAdminTab('config'); 
                     setSelectedProId(null);
@@ -625,8 +618,8 @@
                         <div className="flex gap-3 items-center">
                             {adminTab === 'history' && (
                                 <>
-                                    <Button variant="secondary" onClick={() => exportPDF(finishedApps)} className="text-xs h-9 px-3" title="Exportar PDF"><Icon name="file-text" className="w-4 h-4" /> PDF</Button>
-                                    <Button variant="secondary" onClick={() => exportExcel(finishedApps)} className="text-xs h-9 px-3" title="Exportar Excel"><Icon name="sheet" className="w-4 h-4" /> XLS</Button>
+                                    <Button variant="secondary" onClick={() => exportPDF(appointments)} className="text-xs h-9 px-3" title="Exportar PDF Completo"><Icon name="file-text" className="w-4 h-4" /> PDF</Button>
+                                    <Button variant="secondary" onClick={() => exportExcel(appointments)} className="text-xs h-9 px-3" title="Exportar Excel Completo"><Icon name="sheet" className="w-4 h-4" /> XLS</Button>
                                 </>
                             )}
                             <button onClick={clearAllData} className="text-xs font-medium text-nardo hover:text-detail ml-2 px-3 py-2 hover:bg-gray-100 rounded transition-colors border border-transparent hover:border-gray-200 flex items-center gap-1"><Icon name="rotate-ccw" className="w-3 h-3" /> Reset</button>
@@ -849,8 +842,261 @@
                 }); 
             };
 
-            const exportPDF = (data) => { if(!window.jspdf) return; const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Relatório", 14, 22); doc.autoTable({ head: [['Data', 'Hora', 'Cliente', 'Serviço', 'Barbeiro']], body: data.map(app => [app.date, app.time, app.client_name, app.service_name, app.professional_name]), startY: 30 }); doc.save('relatorio.pdf'); };
-            const exportExcel = (data) => { if(!window.XLSX) return; const ws = XLSX.utils.json_to_sheet(data.map(app => ({ Data: app.date, Hora: app.time, Cliente: app.client_name, Serviço: app.service_name, Barbeiro: app.professional_name }))); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Dados"); XLSX.writeFile(wb, "dados.xlsx"); };
+            const exportPDF = (allData) => {
+                if (!window.jspdf) return;
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Paleta de Cores
+                const colorBlack = [26, 26, 26]; 
+                const colorGray = [100, 116, 139]; 
+                const colorLight = [241, 245, 249]; 
+
+                // -- CABEÇALHO --
+                doc.setFillColor(...colorBlack);
+                doc.rect(0, 0, 210, 40, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(22);
+                doc.setFont('helvetica', 'bold');
+                doc.text("MEN'S NAVALHA", 14, 20);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text("RELATÓRIO GERENCIAL COMPLETO", 14, 28);
+                doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 34);
+
+                // -- DADOS --
+                const pending = allData.filter(a => a.status === 'pending');
+                const finished = allData.filter(a => a.status === 'finished');
+                const cancelled = allData.filter(a => a.status === 'cancelled');
+                const history = [...finished, ...cancelled].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                const total = allData.length;
+
+                // -- SEÇÃO 1: RESUMO (Cards) --
+                let yPos = 50;
+                const drawCard = (x, label, value) => {
+                    doc.setFillColor(255, 255, 255);
+                    doc.setDrawColor(200, 200, 200);
+                    doc.roundedRect(x, yPos, 40, 25, 3, 3, 'FD');
+                    doc.setFontSize(8);
+                    doc.setTextColor(...colorGray);
+                    doc.text(label, x + 5, yPos + 8);
+                    doc.setFontSize(14);
+                    doc.setTextColor(...colorBlack);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(String(value), x + 5, yPos + 18);
+                };
+
+                drawCard(14, "Total Geral", total);
+                drawCard(60, "Finalizados", finished.length);
+                drawCard(106, "Cancelados", cancelled.length);
+                drawCard(152, "Em Aberto", pending.length);
+
+                // -- SEÇÃO 2: GRÁFICOS VISUAIS --
+                yPos += 35;
+                
+                // 2.1 Barra de Progresso (Eficiência)
+                doc.setFontSize(10);
+                doc.setTextColor(...colorBlack);
+                doc.text("Índice de Eficiência (Finalizados vs Cancelados)", 14, yPos);
+                yPos += 5;
+                
+                const totalHistory = finished.length + cancelled.length || 1;
+                const finishedPct = finished.length / totalHistory;
+                const widthBar = 180;
+                const widthFinished = widthBar * finishedPct;
+
+                doc.setFillColor(220, 38, 38); // Fundo Vermelho
+                doc.rect(14, yPos, widthBar, 8, 'F');
+                doc.setFillColor(22, 163, 74); // Frente Verde
+                doc.rect(14, yPos, widthFinished, 8, 'F');
+                
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                if(finished.length > 0) doc.text(`${Math.round(finishedPct*100)}%`, 16, yPos + 5.5);
+                yPos += 15;
+
+                // 2.2 Gráfico de Evolução (Linha)
+                doc.setFontSize(10);
+                doc.setTextColor(...colorBlack);
+                doc.text("Evolução de Atendimentos (Por Data)", 14, yPos);
+                yPos += 10;
+
+                const dates = {};
+                allData.forEach(app => { dates[app.date] = (dates[app.date] || 0) + 1; });
+                const sortedDates = Object.keys(dates).sort().slice(-10); // Últimas 10 datas
+                
+                if (sortedDates.length > 1) {
+                    const graphHeight = 40;
+                    const graphWidth = 180;
+                    const xStart = 14;
+                    const maxVal = Math.max(...Object.values(dates)) + 1;
+                    
+                    doc.setDrawColor(200, 200, 200);
+                    doc.line(xStart, yPos + graphHeight, xStart + graphWidth, yPos + graphHeight); // Eixo X
+                    doc.line(xStart, yPos, xStart, yPos + graphHeight); // Eixo Y
+
+                    doc.setDrawColor(...colorBlack);
+                    doc.setLineWidth(0.5);
+                    const stepX = graphWidth / (sortedDates.length - 1);
+                    let prevX = null; let prevY = null;
+
+                    sortedDates.forEach((date, i) => {
+                        const count = dates[date];
+                        const x = xStart + (i * stepX);
+                        const y = (yPos + graphHeight) - ((count / maxVal) * graphHeight);
+                        doc.setFillColor(...colorBlack);
+                        doc.circle(x, y, 1.5, 'F');
+                        if (prevX !== null) doc.line(prevX, prevY, x, y);
+                        doc.setFontSize(7);
+                        doc.setTextColor(...colorGray);
+                        const shortDate = date.split('-').slice(1).reverse().join('/');
+                        doc.text(shortDate, x - 3, yPos + graphHeight + 5);
+                        prevX = x; prevY = y;
+                    });
+                } else {
+                    doc.setFontSize(8);
+                    doc.setTextColor(...colorGray);
+                    doc.text("Dados insuficientes para gerar gráfico de evolução.", 14, yPos + 20);
+                }
+                yPos += 55;
+
+                // -- SEÇÃO 3: TABELAS DETALHADAS --
+                doc.setFontSize(12);
+                doc.setTextColor(...colorBlack);
+                doc.setFont('helvetica', 'bold');
+                doc.text("1. Fila de Espera (Agendamentos em Aberto)", 14, yPos);
+                yPos += 2;
+
+                const pendingRows = pending.map(a => [
+                    a.date.split('-').reverse().join('/'), a.time, a.client_name, a.client_phone, a.service_name, a.professional_name
+                ]);
+
+                doc.autoTable({
+                    head: [["Data", "Hora", "Cliente", "Contato", "Serviço", "Profissional"]],
+                    body: pendingRows,
+                    startY: yPos + 3,
+                    theme: 'grid',
+                    headStyles: { fillColor: colorBlack, textColor: 255, fontStyle: 'bold' },
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    alternateRowStyles: { fillColor: colorLight }
+                });
+
+                yPos = doc.lastAutoTable.finalY + 15;
+                if (yPos > 250) { doc.addPage(); yPos = 20; }
+
+                doc.setFontSize(12);
+                doc.setTextColor(...colorBlack);
+                doc.text("2. Histórico Completo", 14, yPos);
+                yPos += 2;
+
+                const historyRows = history.map(a => [
+                    a.date.split('-').reverse().join('/'), a.time, a.client_name, a.service_name, a.professional_name, a.status === 'finished' ? 'Finalizado' : 'Cancelado'
+                ]);
+
+                doc.autoTable({
+                    head: [["Data", "Hora", "Cliente", "Serviço", "Barbeiro", "Status"]],
+                    body: historyRows,
+                    startY: yPos + 3,
+                    theme: 'grid',
+                    headStyles: { fillColor: colorGray, textColor: 255, fontStyle: 'bold' },
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    alternateRowStyles: { fillColor: colorLight },
+                    didParseCell: function(data) {
+                        if (data.section === 'body' && data.column.index === 5) {
+                            if (data.cell.raw === 'Finalizado') {
+                                data.cell.styles.textColor = [22, 163, 74];
+                                data.cell.styles.fontStyle = 'bold';
+                            } else {
+                                data.cell.styles.textColor = [220, 38, 38];
+                            }
+                        }
+                    }
+                });
+
+                const pageCount = doc.internal.getNumberOfPages();
+                for(let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150);
+                    doc.text('Página ' + i + ' de ' + pageCount, 195, 290, { align: 'right' });
+                }
+
+                doc.save('relatorio-gerencial-mens-navalha.pdf');
+            };
+
+            const exportExcel = (data) => { 
+                if(!window.XLSX) return; 
+                
+                // 1. Prepare Data Buckets
+                const pending = data.filter(a => a.status === 'pending').sort((a,b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+                const history = data.filter(a => ['finished', 'cancelled'].includes(a.status)).sort((a,b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+                const finishedCount = data.filter(a => a.status === 'finished').length;
+                const cancelledCount = data.filter(a => a.status === 'cancelled').length;
+
+                const wb = XLSX.utils.book_new();
+
+                // 2. Sheet 1: Dashboard (Summary)
+                // Using array of arrays for layout
+                const summaryData = [
+                    ["RELATÓRIO GERENCIAL - MEN'S NAVALHA"],
+                    ["Gerado em:", new Date().toLocaleString('pt-BR')],
+                    [],
+                    ["RESUMO DE PERFORMANCE"],
+                    ["Métrica", "Quantidade"],
+                    ["Total de Agendamentos", data.length],
+                    ["Atendimentos Finalizados", finishedCount],
+                    ["Cancelamentos", cancelledCount],
+                    ["Fila de Espera (Aberto)", pending.length],
+                    [],
+                    ["ÍNDICES"],
+                    ["Taxa de Eficiência (Finalizados/Total Histórico)", history.length ? ((finishedCount / history.length) * 100).toFixed(1) + '%' : '0%']
+                ];
+                const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Dashboard");
+
+                // 3. Sheet 2: Fila de Espera
+                const pendingMapped = pending.map(app => ({
+                    "Data": app.date.split('-').reverse().join('/'),
+                    "Hora": app.time,
+                    "Cliente": app.client_name,
+                    "Telefone": app.client_phone,
+                    "Serviço": app.service_name,
+                    "Profissional": app.professional_name
+                }));
+                const wsPending = XLSX.utils.json_to_sheet(pendingMapped);
+                XLSX.utils.book_append_sheet(wb, wsPending, "Fila de Espera");
+
+                // 4. Sheet 3: Histórico
+                const historyMapped = history.map(app => ({
+                    "Data": app.date.split('-').reverse().join('/'),
+                    "Hora": app.time,
+                    "Cliente": app.client_name,
+                    "Serviço": app.service_name,
+                    "Profissional": app.professional_name,
+                    "Status": app.status === 'finished' ? 'Finalizado' : 'Cancelado'
+                }));
+                const wsHistory = XLSX.utils.json_to_sheet(historyMapped);
+                XLSX.utils.book_append_sheet(wb, wsHistory, "Histórico");
+
+                // 5. Sheet 4: Dados Brutos (All)
+                const allMapped = data.map(app => ({
+                    "ID": app.id,
+                    "Data Original": app.date,
+                    "Data Formatada": app.date.split('-').reverse().join('/'),
+                    "Hora": app.time,
+                    "Cliente": app.client_name,
+                    "Telefone": app.client_phone,
+                    "Serviço": app.service_name,
+                    "Profissional": app.professional_name,
+                    "Status": app.status === 'pending' ? 'Aguardando' : (app.status === 'finished' ? 'Finalizado' : 'Cancelado')
+                }));
+                const wsAll = XLSX.utils.json_to_sheet(allMapped);
+                XLSX.utils.book_append_sheet(wb, wsAll, "Dados Completos");
+
+                // 6. Save
+                XLSX.writeFile(wb, "relatorio_mens_navalha_detalhado.xlsx");
+            };
 
             const generateTimeSlots = () => { const slots = []; for (let i = 9; i <= 19; i++) { slots.push(`${i}:00`); slots.push(`${i}:30`); } return slots; };
             const isSlotAvailable = (date, time, professionalId, serviceDuration) => {
