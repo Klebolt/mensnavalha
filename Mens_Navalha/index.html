@@ -14,15 +14,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Ícones Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Bibliotecas para Exportação -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <!-- SUPABASE IMPORT (CDN) -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <script>
@@ -546,6 +543,33 @@
             const confirmBooking = async () => { 
                 if (!bookingData.clientName || !bookingData.clientPhone) { showToast("Preencha dados.", "error"); return; } 
 
+                // 1. VERIFICAÇÃO: Limitar 1 agendamento por cliente no dia
+                const { data: existingClientApps } = await _supabase
+                    .from('appointments')
+                    .select('*')
+                    .eq('date', bookingData.date)
+                    .eq('client_phone', bookingData.clientPhone)
+                    .neq('status', 'cancelled');
+
+                if (existingClientApps && existingClientApps.length > 0) {
+                    showToast("Você já possui um agendamento neste dia!", "error");
+                    return;
+                }
+
+                // 2. VERIFICAÇÃO: Race condition (ver se alguém pegou o horário no último segundo)
+                const { data: slotOccupied } = await _supabase
+                    .from('appointments')
+                    .select('*')
+                    .eq('date', bookingData.date)
+                    .eq('time', bookingData.time)
+                    .eq('professional_id', bookingData.professional.id)
+                    .neq('status', 'cancelled');
+
+                if (slotOccupied && slotOccupied.length > 0) {
+                     showToast("Horário indisponível. Tente outro.", "error");
+                     return;
+                }
+
                 const newAppointment = { 
                     service_id: bookingData.service.id,
                     service_name: bookingData.service.name,
@@ -677,7 +701,7 @@
                         <div className="container mx-auto px-4 h-20 flex justify-between items-center">
                             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('home')}>
                                 <div className="h-10 w-10 bg-detail rounded-lg flex items-center justify-center text-white border border-gray-900 shadow-sm group-hover:scale-105 transition-transform overflow-hidden relative">
-                                    {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" alt="Logo" /> : <Icon name="scissors" />}
+                                    <img src="img/logo.png" className="w-full h-full object-cover" alt="Logo" />
                                 </div>
                                 <div><h1 className="text-xl font-bold tracking-tight text-text leading-none">Men's <span className="text-detail">Navalha</span></h1><p className="text-[10px] text-nardo font-medium uppercase tracking-[0.2em]">Barbearia Clássica</p></div>
                             </div>
