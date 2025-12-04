@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Men's Navalha | Agendamentos</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Ícones Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Bibliotecas para Exportação -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- SUPABASE IMPORT (CDN) -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <script>
+        // --- CONFIGURAÇÃO TAILWIND ---
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { 
+                        bg: '#f8fafc', surface: '#ffffff', border: '#e2e8f0', nardo: '#64748b', detail: '#000000', text: '#1a1a1a'
+                    },
+                    boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)' },
+                    animation: { 'fade-in-up': 'fadeInUp 0.3s ease-out' },
+                    keyframes: { fadeInUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; } 
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; } 
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
+        .fade-in { animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createClient } = supabase;
+
+        // ==========================================================================================
+        // CONFIGURAÇÃO DO SUPABASE
+        // ==========================================================================================
+        const SUPABASE_URL = 'https://gtjemlrfoqauxukwaznq.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0amVtbHJmb3FhdXh1a3dhem5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4MTA4OTcsImV4cCI6MjA4MDM4Njg5N30.vbQvxsWCVkNy5roXTfShxJ-tTeGjrKotUS7nuViDEBM';
+        
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ==========================================================================================
+
+        // --- HELPERS ---
+        const timeToMinutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+
+        // --- COMPONENTES UI ---
+        const Icon = ({ name, className }) => <i data-lucide={name} className={`w-5 h-5 ${className}`}></i>;
+        const Skeleton = ({ className }) => <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>;
+
+        const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => {
+            const baseStyle = "px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-detail disabled:opacity-50 disabled:cursor-not-allowed border";
+            const variants = {
+                primary: "bg-detail text-white border-detail hover:bg-gray-900 shadow-sm hover:shadow-md", 
+                secondary: "bg-surface border-border text-nardo hover:text-detail hover:border-detail hover:bg-gray-50",
+                danger: "bg-white border-2 border-detail text-detail hover:bg-gray-100 font-bold",
+                success: "bg-surface border-border text-text hover:border-detail hover:bg-gray-50",
+            };
+            return <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} {...props}>{children}</button>;
+        };
+
+        const Card = ({ children, className = '', onClick, selected }) => (
+            <div onClick={onClick} className={`p-6 rounded-xl transition-all duration-200 bg-surface ${onClick ? 'cursor-pointer hover:border-gray-300 hover:translate-y-[-2px]' : ''} ${selected ? 'ring-2 ring-detail shadow-lg bg-white' : 'border border-border shadow-soft hover:shadow-md'} ${className}`}>{children}</div>
+        );
+
+        const Input = ({ label, ...props }) => (
+            <div className="mb-3">
+                {label && <label className="block text-xs uppercase font-bold text-nardo mb-1 ml-1">{label}</label>}
+                <input className="w-full p-3 bg-white border border-border rounded-lg focus:ring-2 focus:ring-detail focus:border-transparent outline-none transition-all text-sm text-text placeholder-gray-400" {...props} />
+            </div>
+        );
+
+        const CustomCalendar = ({ selectedDate, onSelect }) => {
+            const today = new Date();
+            const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+            const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+            const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+            const days = [];
+            for (let i = 0; i < firstDay; i++) days.push(null);
+            for (let i = 1; i <= daysInMonth; i++) days.push(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i));
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            const isSelected = (date) => date && selectedDate === formatDate(date);
+
+            return (
+                <div className="bg-surface p-4 rounded-xl border border-border shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="font-bold text-text capitalize">{currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
+                        <div className="flex gap-2">
+                             <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1 hover:text-detail transition-colors"><Icon name="chevron-left" /></button>
+                             <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1 hover:text-detail transition-colors"><Icon name="chevron-right" /></button>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-center mb-2">{['D','S','T','Q','Q','S','S'].map((d,i) => <span key={i} className="text-xs text-nardo font-bold">{d}</span>)}</div>
+                    <div className="grid grid-cols-7 gap-1">
+                        {days.map((date, idx) => (
+                            <div key={idx} className="aspect-square">
+                                {date && (
+                                    <button onClick={() => onSelect(formatDate(date))} disabled={date < new Date().setHours(0,0,0,0)} className={`w-full h-full rounded-lg text-sm flex items-center justify-center transition-all font-medium ${isSelected(date) ? 'bg-detail text-white shadow-md' : 'hover:bg-gray-100 text-text'} ${date < new Date().setHours(0,0,0,0) ? 'opacity-30 cursor-not-allowed text-gray-300' : ''}`}>{date.getDate()}</button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const Toast = ({ toast }) => {
+            if (!toast.show) return null;
+            const style = toast.type === 'error' ? 'bg-white border-2 border-detail text-detail' : 'bg-detail text-white border-detail';
+            return (
+                <div className={`fixed top-4 right-4 z-[9999] px-6 py-4 rounded-lg shadow-xl border flex items-center gap-3 animate-fade-in-up ${style}`}>
+                    <Icon name={toast.type === 'error' ? 'alert-circle' : 'badge-check'} className="w-5 h-5" />
+                    <span className="font-medium text-sm">{toast.text}</span>
+                </div>
+            );
+        };
+
+        const ConfirmModal = ({ isOpen, text, onConfirm, onCancel }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 fade-in">
+                    <div className="bg-surface rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-border">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-detail mx-auto border border-gray-200">
+                            <Icon name="alert-triangle" className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-bold text-text text-center mb-2">Confirmação</h3>
+                        <p className="text-nardo text-center text-sm mb-6">{text}</p>
+                        <div className="flex gap-3">
+                            <Button variant="secondary" onClick={onCancel} className="flex-1 justify-center">Cancelar</Button>
+                            <Button variant="danger" onClick={onConfirm} className="flex-1 justify-center">Confirmar</Button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const AdminLogin = ({ onLogin, showToast }) => {
+            const [pass, setPass] = useState('');
+            return (
+                <div className="flex items-center justify-center min-h-[60vh] fade-in px-4">
+                    <div className="w-full max-w-md bg-surface p-10 rounded-2xl shadow-soft border border-border text-center">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-detail border border-border"><Icon name="key-round" className="w-8 h-8" /></div>
+                        <h2 className="text-2xl font-bold text-text mb-2">Acesso Restrito</h2>
+                        <form onSubmit={(e) => { e.preventDefault(); onLogin(pass); }}>
+                            <input type="password" className="w-full p-3 bg-bg border border-border text-text rounded-lg mb-4 focus:ring-2 focus:ring-detail outline-none text-center" placeholder="Senha" value={pass} onChange={e => setPass(e.target.value)} autoFocus />
+                            <Button type="submit" className="w-full justify-center mt-2">Entrar</Button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- CLIENTE BOOKING ---
+        const ClientBooking = ({ step, setStep, bookingData, setBookingData, confirmBooking, generateTimeSlots, isSlotAvailable, services, professionals }) => {
+            const [loading, setLoading] = useState(false);
+            
+            // Ícones sempre visíveis
+            useEffect(() => { lucide.createIcons(); });
+
+            const handleStepChange = (newStep, dataUpdate = {}) => {
+                setLoading(true); setBookingData(prev => ({...prev, ...dataUpdate}));
+                setTimeout(() => { setStep(newStep); setLoading(false); }, 400); 
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto fade-in pb-12">
+                    <div className="mb-12 text-center">
+                        <h2 className="text-3xl font-bold text-text tracking-tight mb-6">Novo Agendamento</h2>
+                        <div className="flex justify-center items-center gap-2">{[1, 2, 3, 4].map(s => (<div key={s} className={`h-1.5 rounded-full transition-all duration-300 ${step >= s ? 'w-12 bg-detail' : 'w-4 bg-gray-200'}`}></div>))}</div>
+                    </div>
+
+                    {step === 1 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-6"><span className="flex items-center justify-center w-8 h-8 rounded-full bg-detail text-white text-sm font-bold">1</span><h3 className="text-lg font-semibold text-nardo">Selecione o Serviço</h3></div>
+                            {loading ? (<div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 w-full" />)}</div>) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                                    {services.map(srv => (
+                                        <Card key={srv.id} onClick={() => handleStepChange(2, { service: srv })} className="flex items-start gap-4 group">
+                                            <div className="p-3 bg-gray-50 text-nardo rounded-lg group-hover:bg-detail group-hover:text-white transition-colors border border-border"><Icon name={srv.icon} /></div>
+                                            <div><h3 className="font-semibold text-text text-lg leading-tight mb-1">{srv.name}</h3><p className="text-nardo text-sm">{srv.duration} min • <span className="text-detail font-medium">{srv.price}</span></p></div>
+                                        </Card>
+                                    ))}
+                                    {services.length === 0 && <p className="col-span-2 text-center text-gray-400">Nenhum serviço disponível.</p>}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-6"><span className="flex items-center justify-center w-8 h-8 rounded-full bg-detail text-white text-sm font-bold">2</span><h3 className="text-lg font-semibold text-nardo">Selecione o Profissional</h3></div>
+                            {loading ? (<div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1,2].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                                    {professionals.filter(prof => {
+                                        const allowed = prof.allowed_services || [];
+                                        return allowed.includes(bookingData.service.id);
+                                    }).map(prof => (
+                                        <Card key={prof.id} onClick={() => handleStepChange(3, { professional: prof })} className="flex items-center gap-4">
+                                            <div className="h-14 w-14 bg-gray-50 rounded-full flex items-center justify-center text-xl font-bold text-nardo border border-border">{prof.name.charAt(0)}</div>
+                                            <div><h3 className="font-semibold text-lg text-text">{prof.name}</h3><p className="text-sm text-nardo">{prof.specialty}</p></div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                            <Button variant="secondary" onClick={() => setStep(1)} className="mt-8 w-full md:w-auto">Voltar</Button>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-6"><span className="flex items-center justify-center w-8 h-8 rounded-full bg-detail text-white text-sm font-bold">3</span><h3 className="text-lg font-semibold text-nardo">Data e Horário</h3></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div><label className="block text-sm font-medium text-nardo mb-3">Escolha o dia</label><CustomCalendar selectedDate={bookingData.date} onSelect={(date) => setBookingData({...bookingData, date, time: ''})} /></div>
+                                <div>
+                                    <label className="block text-sm font-medium text-nardo mb-3">Horários Disponíveis</label>
+                                    {!bookingData.date ? (<div className="flex items-center justify-center h-64 border border-dashed border-border rounded-xl text-nardo text-sm">Selecione uma data</div>) : (
+                                        <div className="grid grid-cols-3 gap-2 animate-fade-in content-start">
+                                            {generateTimeSlots().map(time => {
+                                                const status = isSlotAvailable(bookingData.date, time, bookingData.professional.id, bookingData.service?.duration);
+                                                return (<button key={time} disabled={!status.available} onClick={() => handleStepChange(4, { time })} title={status.reason} className={`py-2 rounded-lg text-sm font-medium transition-all border ${status.available ? 'bg-white border-border text-text hover:border-detail hover:text-detail shadow-sm hover:shadow-md' : 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed'}`}>{time}</button>);
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <Button variant="secondary" onClick={() => setStep(2)} className="mt-8 w-full md:w-auto">Voltar</Button>
+                        </div>
+                    )}
+
+                    {step === 4 && (
+                        <div className="bg-surface p-8 rounded-2xl shadow-lg border border-border max-w-lg mx-auto animate-fade-in">
+                            <h3 className="text-2xl font-bold mb-6 text-center text-text">Confirmar</h3>
+                            <div className="space-y-4 mb-8 bg-gray-50 p-6 rounded-xl border border-border">
+                                <div className="flex justify-between items-center"><span className="text-nardo text-sm">Serviço</span><span className="font-semibold text-text text-right">{bookingData.service?.name}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-nardo text-sm">Profissional</span><span className="font-semibold text-text">{bookingData.professional?.name}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-nardo text-sm">Data & Hora</span><span className="font-semibold text-text">{bookingData.date.split('-').reverse().join('/')} às {bookingData.time}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-nardo text-sm">Duração Est.</span><span className="font-semibold text-text">{bookingData.service?.duration} min</span></div>
+                                <div className="h-px bg-border my-2"></div>
+                                <div className="flex justify-between items-center"><span className="text-nardo text-sm">Total</span><span className="font-bold text-xl text-detail">{bookingData.service?.price}</span></div>
+                            </div>
+                            <div className="space-y-4"><Input label="Seu Nome" value={bookingData.clientName} onChange={(e) => setBookingData({...bookingData, clientName: e.target.value})} placeholder="Ex: João Silva" /><Input label="Seu Telefone" value={bookingData.clientPhone} onChange={(e) => setBookingData({...bookingData, clientPhone: e.target.value})} placeholder="Ex: (11) 99999-9999" /></div>
+                            <div className="flex gap-3 mt-8"><Button variant="secondary" onClick={() => setStep(3)} className="flex-1">Voltar</Button><Button onClick={confirmBooking} className="flex-[2] shadow-md">Confirmar</Button></div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ConfigPanel = ({ services, onAddService, onUpdateService, onDeleteService, professionals, onAddPro, onUpdatePro, onDeletePro, requestConfirm, showToast, logoUrl, setLogoUrl }) => {
+            const [srvForm, setSrvForm] = useState(null);
+            const [proForm, setProForm] = useState(null);
+            const iconOptions = ['scissors', 'user', 'zap', 'sparkles', 'star', 'eye', 'anchor', 'crown'];
+            
+            // Ícones sempre visíveis
+            useEffect(() => { lucide.createIcons(); });
+
+            const handleEditService = (srv) => setSrvForm(srv ? { ...srv } : { name: '', price: '', duration: '', icon: 'scissors' });
+            const saveService = () => {
+                if(!srvForm.name || !srvForm.price) return showToast("Preencha dados", "error");
+                if(srvForm.id) { onUpdateService(srvForm); showToast("Serviço atualizado!"); } 
+                else { onAddService(srvForm); showToast("Serviço criado!"); }
+                setSrvForm(null); 
+            };
+            const confirmDeleteService = (id) => requestConfirm("Excluir serviço?", () => { onDeleteService(id); if (srvForm && srvForm.id === id) setSrvForm(null); showToast("Excluído."); });
+
+            const handleEditPro = (pro) => {
+                if (pro) {
+                    // Editando: Mapeia snake_case (DB) para camelCase (Form)
+                    setProForm({ 
+                        ...pro, 
+                        allowedServices: pro.allowed_services || [],
+                        lunchStart: pro.lunch_start || '', 
+                        lunchEnd: pro.lunch_end || ''
+                    });
+                } else {
+                    // Novo: Inicia com todos os serviços permitidos
+                    setProForm({ 
+                        name: '', 
+                        specialty: '', 
+                        allowedServices: services.map(s => s.id),
+                        lunchStart: '',
+                        lunchEnd: ''
+                    });
+                }
+            };
+            
+            const savePro = () => {
+                if(!proForm.name) return showToast("Nome obrigatório", "error");
+                if(proForm.id) { onUpdatePro(proForm); showToast("Atualizado!"); } 
+                else { onAddPro(proForm); showToast("Criado!"); }
+                setProForm(null); 
+            };
+            const confirmDeletePro = (id) => requestConfirm("Remover profissional?", () => { onDeletePro(id); if (proForm && proForm.id === id) setProForm(null); showToast("Removido."); });
+            const toggleServiceForPro = (srvId) => { 
+                const current = proForm.allowedServices || []; 
+                if(current.includes(srvId)) setProForm({...proForm, allowedServices: current.filter(id => id !== srvId)}); 
+                else setProForm({...proForm, allowedServices: [...current, srvId]}); 
+            }
+
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setLogoUrl(reader.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            return (
+                <div className="flex flex-col gap-6">
+                    {/* --- LOGO --- */}
+                    <div className="bg-surface p-6 rounded-2xl border border-border shadow-soft">
+                        <h3 className="font-bold text-lg text-text mb-4 flex items-center gap-2"><Icon name="image" /> Identidade Visual</h3>
+                        <div className="flex flex-col gap-3">
+                            <Input label="URL da Logo (Imagem)" placeholder="https://exemplo.com/sua-logo.png" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-nardo font-medium">Ou selecione do dispositivo:</span>
+                                <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-sm text-nardo file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-detail file:text-white hover:file:bg-gray-800 cursor-pointer" />
+                            </div>
+                            <p className="text-xs text-nardo mt-1">A imagem será salva automaticamente no navegador.</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* SERVIÇOS */}
+                        <div className="bg-surface p-6 rounded-2xl border border-border shadow-soft">
+                            <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
+                                <h3 className="font-bold text-lg text-text flex items-center gap-2"><Icon name="scissors" /> Serviços</h3>
+                                <Button variant="secondary" onClick={() => handleEditService(null)} className="py-1 px-3 text-xs"><Icon name="plus" className="w-4 h-4" /> Novo</Button>
+                            </div>
+                            {srvForm && (<div className="bg-gray-50 p-4 rounded-xl mb-6 border border-border animate-fade-in"><h4 className="text-xs font-bold uppercase text-nardo mb-3">{srvForm.id ? 'Editar' : 'Novo'}</h4><div className="grid grid-cols-2 gap-2"><Input label="Nome" value={srvForm.name} onChange={e => setSrvForm({...srvForm, name: e.target.value})} /><Input label="Preço" value={srvForm.price} onChange={e => setSrvForm({...srvForm, price: e.target.value})} /><Input label="Duração (min)" type="number" value={srvForm.duration} onChange={e => setSrvForm({...srvForm, duration: e.target.value})} /><div><label className="block text-xs uppercase font-bold text-nardo mb-1 ml-1">Ícone</label><div className="flex gap-2 flex-wrap">{iconOptions.map(ic => (<button key={ic} onClick={() => setSrvForm({...srvForm, icon: ic})} className={`p-2 rounded border ${srvForm.icon === ic ? 'bg-detail text-white border-detail' : 'bg-surface border-border text-nardo'}`}><Icon name={ic} className="w-4 h-4" /></button>))}</div></div></div><div className="flex gap-2 mt-2"><Button onClick={saveService} className="w-full">Salvar</Button><Button variant="secondary" onClick={() => setSrvForm(null)} className="px-3">X</Button></div></div>)}
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                {services.map(s => (
+                                    <div key={s.id} onClick={() => handleEditService(s)} className="group flex justify-between items-center p-3 border border-border rounded-lg hover:border-detail hover:bg-gray-50 cursor-pointer transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-gray-100 rounded-lg text-nardo group-hover:text-detail"><Icon name={s.icon} /></div>
+                                            <div><p className="font-bold text-sm text-text">{s.name}</p><p className="text-xs text-nardo">{s.duration} min • {s.price}</p></div>
+                                        </div>
+                                        <Button variant="secondary" onClick={(e) => { e.stopPropagation(); confirmDeleteService(s.id); }} className="p-2 h-auto" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {/* EQUIPE */}
+                        <div className="bg-surface p-6 rounded-2xl border border-border shadow-soft">
+                            <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
+                                <h3 className="font-bold text-lg text-text flex items-center gap-2"><Icon name="user" /> Equipe</h3>
+                                <Button variant="secondary" onClick={() => handleEditPro(null)} className="py-1 px-3 text-xs"><Icon name="plus" className="w-4 h-4" /> Novo</Button>
+                            </div>
+                            {proForm && (
+                                <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-border animate-fade-in">
+                                    <h4 className="text-xs font-bold uppercase text-nardo mb-3">{proForm.id ? 'Editar' : 'Novo'}</h4>
+                                    <Input label="Nome" value={proForm.name} onChange={e => setProForm({...proForm, name: e.target.value})} />
+                                    <Input label="Especialidade" value={proForm.specialty} onChange={e => setProForm({...proForm, specialty: e.target.value})} />
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        <Input label="Início Almoço" type="time" value={proForm.lunchStart || ''} onChange={e => setProForm({...proForm, lunchStart: e.target.value})} />
+                                        <Input label="Fim Almoço" type="time" value={proForm.lunchEnd || ''} onChange={e => setProForm({...proForm, lunchEnd: e.target.value})} />
+                                    </div>
+                                    <label className="block text-xs uppercase font-bold text-nardo mb-2 ml-1">Serviços</label>
+                                    <div className="grid grid-cols-2 gap-2 mb-4">
+                                        {services.map(s => (
+                                            <button key={s.id} onClick={() => toggleServiceForPro(s.id)} className={`text-xs text-left px-2 py-1.5 rounded border ${proForm.allowedServices?.includes(s.id) ? 'bg-detail text-white border-detail' : 'bg-surface border-border text-nardo'}`}>{s.name}</button>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2 mt-2">
+                                        <Button onClick={savePro} className="w-full">Salvar</Button>
+                                        <Button variant="secondary" onClick={() => setProForm(null)} className="px-3">X</Button>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                {professionals.map(p => (
+                                    <div key={p.id} onClick={() => handleEditPro(p)} className="group flex justify-between items-center p-3 border border-border rounded-lg hover:border-detail hover:bg-gray-50 cursor-pointer transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-nardo border border-border group-hover:border-detail">{p.name.charAt(0)}</div>
+                                            <div>
+                                                <p className="font-bold text-sm text-text">{p.name}</p>
+                                                <p className="text-xs text-nardo">{p.specialty}</p>
+                                                {p.lunch_start && p.lunch_end && <p className="text-[10px] text-gray-400">Almoço: {p.lunch_start} - {p.lunch_end}</p>}
+                                            </div>
+                                        </div>
+                                        <Button variant="secondary" onClick={(e) => { e.stopPropagation(); confirmDeletePro(p.id); }} className="p-2 h-auto" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        // --- DASHBOARD P&B ---
+        const BarberDashboard = ({ professional, appointments, updateStatus, deleteAppointment, onBack }) => {
+            // Ícones sempre visíveis
+            useEffect(() => { lucide.createIcons(); });
+            const proApps = appointments.filter(app => app.professional_id === professional.id);
+            const pending = proApps.filter(app => app.status === 'pending').sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+            const finished = proApps.filter(app => ['finished', 'cancelled'].includes(app.status)).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+
+            const renderAppCard = (app, showActions = true) => (
+                <div key={app.id} className="p-4 bg-surface border border-border rounded-lg hover:border-gray-300 transition-all flex flex-col gap-3 mb-3 shadow-sm">
+                    <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2"><span className="font-bold text-lg text-text">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 rounded text-nardo">{app.date.split('-').reverse().join('/')}</span></div>
+                        {showActions && (
+                            <div className="flex gap-1">
+                                <Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="p-1.5 h-auto hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button>
+                                <Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="p-1.5 h-auto hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>
+                            </div>
+                        )}
+                    </div>
+                    <div><h4 className="font-semibold text-text text-sm">{app.client_name}</h4><p className="text-xs text-nardo">{app.service_name}</p></div>
+                </div>
+            );
+
+            return (
+                <div className="animate-fade-in">
+                    <div className="flex items-center gap-4 mb-6"><Button variant="secondary" onClick={onBack} className="px-3"><Icon name="chevron-left" className="w-4 h-4" /> Voltar</Button><div><h3 className="text-xl font-bold text-text">{professional.name}</h3><p className="text-xs text-nardo">{professional.specialty}</p></div></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-gray-50 p-4 rounded-xl border border-border"><h4 className="font-bold text-nardo uppercase text-xs tracking-wider mb-4 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-detail"></span> Na Fila ({pending.length})</h4>{pending.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Vazio.</p> : pending.map(app => renderAppCard(app))}</div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-border"><h4 className="font-bold text-nardo uppercase text-xs tracking-wider mb-4 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-gray-400"></span> Histórico ({finished.length})</h4>{finished.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">Vazio.</p> : finished.map(app => renderAppCard(app, false))}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- ADMIN PANEL P&B ---
+        const AdminPanel = ({ appointments, updateStatus, deleteAppointment, startEdit, exportPDF, exportExcel, clearAllData, onLogout, services, onAddService, onUpdateService, onDeleteService, professionals, onAddPro, onUpdatePro, onDeletePro, requestConfirm, showToast, logoUrl, setLogoUrl }) => {
+            const [adminTab, setAdminTab] = useState('active');
+            const [selectedProId, setSelectedProId] = useState(null);
+            
+            // Ícones sempre visíveis
+            useEffect(() => { lucide.createIcons(); });
+
+            const pendingApps = appointments.filter(app => app.status === 'pending').sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+            const finishedApps = appointments.filter(app => app.status === 'finished' || app.status === 'cancelled').sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+            const activeList = adminTab === 'active' ? pendingApps : finishedApps;
+
+            const getBadgeStyle = (status) => {
+                if (status === 'pending') return 'bg-gray-100 text-text border-gray-300';
+                if (status === 'finished') return 'bg-detail text-white border-detail';
+                return 'bg-white text-text border-2 border-detail font-bold'; 
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto fade-in">
+                    <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-6">
+                        <div><h2 className="text-3xl font-bold text-text tracking-tight">Painel Admin</h2><p className="text-nardo mt-1">Gestão da Barbearia</p></div>
+                        <div className="flex gap-3 items-center">
+                            {adminTab === 'history' && (
+                                <>
+                                    <Button variant="secondary" onClick={() => exportPDF(finishedApps)} className="text-xs h-9 px-3" title="Exportar PDF"><Icon name="file-text" className="w-4 h-4" /> PDF</Button>
+                                    <Button variant="secondary" onClick={() => exportExcel(finishedApps)} className="text-xs h-9 px-3" title="Exportar Excel"><Icon name="sheet" className="w-4 h-4" /> XLS</Button>
+                                </>
+                            )}
+                            <button onClick={clearAllData} className="text-xs font-medium text-nardo hover:text-detail ml-2 px-3 py-2 hover:bg-gray-100 rounded transition-colors border border-transparent hover:border-gray-200 flex items-center gap-1"><Icon name="rotate-ccw" className="w-3 h-3" /> Reset</button>
+                            <button onClick={onLogout} className="text-xs font-medium text-nardo hover:text-detail ml-2 px-3 py-2 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"><Icon name="log-out" className="w-3 h-3" /> Sair</button>
+                        </div>
+                    </div>
+                    <div className="bg-surface rounded-2xl shadow-soft border border-border overflow-hidden">
+                        <div className="flex border-b border-border bg-gray-50/50">{['active', 'history', 'team', 'config'].map(t => (<button key={t} onClick={() => { setAdminTab(t); setSelectedProId(null); }} className={`flex-1 py-4 text-center font-medium text-sm transition-colors relative uppercase tracking-wider ${adminTab === t ? 'text-detail bg-surface' : 'text-nardo hover:text-text'}`}>{t === 'active' ? 'Fila' : (t === 'history' ? 'Histórico' : (t === 'team' ? 'Equipe' : 'Config'))}{adminTab === t && <div className="absolute top-0 left-0 w-full h-0.5 bg-detail"></div>}</button>))}</div>
+                        <div className="p-6 bg-surface min-h-[400px]">
+                            {adminTab === 'config' && <ConfigPanel services={services} onAddService={onAddService} onUpdateService={onUpdateService} onDeleteService={onDeleteService} professionals={professionals} onAddPro={onAddPro} onUpdatePro={onUpdatePro} onDeletePro={onDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} />}
+                            {adminTab === 'team' && (selectedProId ? <BarberDashboard professional={professionals.find(p => p.id === selectedProId)} appointments={appointments} updateStatus={updateStatus} deleteAppointment={deleteAppointment} onBack={() => setSelectedProId(null)} /> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{professionals.map(pro => (<div key={pro.id} onClick={() => setSelectedProId(pro.id)} className="bg-white border border-border rounded-xl p-6 shadow-sm hover:border-gray-400 hover:shadow-md transition-all cursor-pointer group flex flex-col items-center text-center"><div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-3xl font-bold text-nardo mb-4 group-hover:bg-gray-100 group-hover:text-detail transition-colors border border-border">{pro.name.charAt(0)}</div><h3 className="font-bold text-lg text-text mb-1">{pro.name}</h3><p className="text-xs text-nardo mb-4">{pro.specialty}</p><div className="w-full pt-4 border-t border-border flex justify-between items-center text-xs text-gray-400"><span className="flex items-center gap-1"><Icon name="calendar-days" className="w-3 h-3" /> Agenda</span><Icon name="chevron-right" className="w-3 h-3" /></div></div>))}</div>)}
+                            {(adminTab === 'active' || adminTab === 'history') && (activeList.length === 0 ? <div className="flex flex-col items-center justify-center py-32 text-nardo"><div className="p-4 bg-gray-50 rounded-full mb-4 opacity-50 border border-border"><Icon name="scissors" className="w-8 h-8" /></div><p className="font-medium">Nenhum agendamento.</p></div> : <div className="divide-y divide-border">{activeList.map(app => (<div key={app.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 group rounded-lg"><div className="flex-1"><div className="flex items-center gap-3 mb-2"><span className="font-bold text-xl text-text tabular-nums">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 border border-border rounded text-nardo">{app.date ? app.date.split('-').reverse().join('/') : app.date}</span><span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide border ${getBadgeStyle(app.status)}`}>{app.status === 'pending' ? 'Aguardando' : (app.status === 'finished' ? 'Finalizado' : 'Cancelado')}</span></div><div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4"><h4 className="font-semibold text-text">{app.client_name}</h4><span className="hidden sm:inline text-gray-300">|</span><p className="text-sm text-nardo">{app.service_name}</p><span className="hidden sm:inline text-gray-300">|</span><div className="flex items-center gap-1 text-sm text-nardo"><Icon name="user" className="w-3 h-3" /> {app.professional_name}</div></div></div><div className="flex gap-2">{adminTab === 'active' && (<><Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="px-3 hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => startEdit(app)} className="px-3 hover:bg-gray-200" title="Editar"><Icon name="pencil" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button></>)}{adminTab === 'history' && (<Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>)}</div></div>))}</div>)}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('home');
+            
+            // Estados de Dados
+            const [appointments, setAppointments] = useState([]);
+            const [services, setServices] = useState([]);
+            const [professionals, setProfessionals] = useState([]);
+
+            const [step, setStep] = useState(1);
+            const [bookingData, setBookingData] = useState({ service: null, professional: null, date: '', time: '', clientName: '', clientPhone: '' });
+            const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+            const [modal, setModal] = useState({ isOpen: false, text: '', action: null });
+            const [toast, setToast] = useState({ show: false, text: '', type: 'success' });
+            
+            const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem('barber_logo') || '');
+
+            // --- LISTENERS DE DADOS SUPABASE (REALTIME) ---
+            useEffect(() => {
+                const fetchData = async () => {
+                    const { data: srvs } = await _supabase.from('services').select('*');
+                    if (srvs) setServices(srvs.sort((a,b) => a.name.localeCompare(b.name)));
+
+                    const { data: pros } = await _supabase.from('professionals').select('*');
+                    if (pros) setProfessionals(pros.sort((a,b) => a.name.localeCompare(b.name)));
+
+                    const { data: apps } = await _supabase.from('appointments').select('*');
+                    if (apps) setAppointments(apps);
+                };
+                fetchData();
+
+                const channel = _supabase.channel('public:data')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, fetchData)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'professionals' }, fetchData)
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, fetchData)
+                    .subscribe();
+
+                return () => { _supabase.removeChannel(channel); };
+            }, []);
+
+            useEffect(() => { localStorage.setItem('barber_logo', logoUrl); }, [logoUrl]);
+            useEffect(() => { lucide.createIcons(); }, [view, step, appointments, services, professionals]);
+
+            const showToast = (text, type = 'success') => { setToast({ show: true, text, type }); setTimeout(() => setToast({ show: false, text: '', type: 'success' }), 3000); };
+            const requestConfirm = (text, action) => setModal({ isOpen: true, text, action });
+            const confirmAction = () => { if (modal.action) modal.action(); setModal({ isOpen: false, text: '', action: null }); };
+
+            // --- OPERAÇÕES DE BANCO DE DADOS (SUPABASE) ---
+            
+            const confirmBooking = async () => { 
+                if (!bookingData.clientName || !bookingData.clientPhone) { showToast("Preencha dados.", "error"); return; } 
+
+                const newAppointment = { 
+                    service_id: bookingData.service.id,
+                    service_name: bookingData.service.name,
+                    professional_id: bookingData.professional.id,
+                    professional_name: bookingData.professional.name,
+                    date: bookingData.date,
+                    time: bookingData.time,
+                    client_name: bookingData.clientName,
+                    client_phone: bookingData.clientPhone,
+                    status: 'pending'
+                }; 
+                
+                const { error } = await _supabase.from('appointments').insert([newAppointment]);
+                if (error) {
+                    console.error(error);
+                    showToast("Erro ao agendar.", "error");
+                } else {
+                    showToast("Agendado com sucesso!"); 
+                    setBookingData({ service: null, professional: null, date: '', time: '', clientName: '', clientPhone: '' }); 
+                    setStep(1); setView('home'); 
+                }
+            };
+
+            const updateStatus = async (id, newStatus) => { 
+                const { error } = await _supabase.from('appointments').update({ status: newStatus }).eq('id', id);
+                if (!error) showToast("Status atualizado"); 
+            };
+            
+            const deleteAppointment = async (id) => { 
+                const { error } = await _supabase.from('appointments').delete().eq('id', id);
+                if (!error) showToast("Excluído."); 
+            };
+
+            const startEdit = async (app) => { 
+                const newName = prompt("Nome:", app.client_name); 
+                if (newName) {
+                    await _supabase.from('appointments').update({ client_name: newName }).eq('id', app.id);
+                }
+            };
+
+            const handleAddService = async (serviceData) => {
+                const { id, ...data } = serviceData; 
+                const { error } = await _supabase.from('services').insert([data]);
+                if (error) showToast("Erro ao criar.", "error");
+            };
+            const handleUpdateService = async (serviceData) => {
+                const { id, ...data } = serviceData;
+                const { error } = await _supabase.from('services').update(data).eq('id', id);
+                if (error) showToast("Erro ao atualizar.", "error");
+            };
+            const handleDeleteService = async (id) => {
+                const { error } = await _supabase.from('services').delete().eq('id', id);
+                if (error) showToast("Erro ao deletar.", "error");
+            };
+
+            const handleAddPro = async (proData) => {
+                const { id, allowedServices, lunchStart, lunchEnd, ...data } = proData;
+                const dbData = { ...data, allowed_services: allowedServices, lunch_start: lunchStart, lunch_end: lunchEnd };
+                
+                const { error } = await _supabase.from('professionals').insert([dbData]);
+                if (error) {
+                    console.error("Erro Supabase:", error);
+                    showToast("Erro ao criar: " + error.message, "error");
+                } else {
+                    showToast("Criado!");
+                }
+            };
+
+            const handleUpdatePro = async (proData) => {
+                const { id, allowedServices, lunchStart, lunchEnd, ...data } = proData;
+                const dbData = { ...data, allowed_services: allowedServices, lunch_start: lunchStart, lunch_end: lunchEnd };
+
+                const { error } = await _supabase.from('professionals').update(dbData).eq('id', id);
+                if (error) {
+                    console.error(error);
+                    showToast("Erro ao atualizar.", "error");
+                } else {
+                    showToast("Atualizado!");
+                }
+            };
+            
+            const handleDeletePro = async (id) => {
+                const { error } = await _supabase.from('professionals').delete().eq('id', id);
+                if (error) showToast("Erro ao deletar.", "error");
+            };
+
+            const clearAllData = () => { 
+                requestConfirm("Isso apagará o localStorage (Logo).", () => { 
+                    setLogoUrl(''); localStorage.clear(); showToast("Reset local."); 
+                }); 
+            };
+
+            const exportPDF = (data) => { if(!window.jspdf) return; const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Relatório", 14, 22); doc.autoTable({ head: [['Data', 'Hora', 'Cliente', 'Serviço', 'Barbeiro']], body: data.map(app => [app.date, app.time, app.client_name, app.service_name, app.professional_name]), startY: 30 }); doc.save('relatorio.pdf'); };
+            const exportExcel = (data) => { if(!window.XLSX) return; const ws = XLSX.utils.json_to_sheet(data.map(app => ({ Data: app.date, Hora: app.time, Cliente: app.client_name, Serviço: app.service_name, Barbeiro: app.professional_name }))); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Dados"); XLSX.writeFile(wb, "dados.xlsx"); };
+
+            const generateTimeSlots = () => { const slots = []; for (let i = 9; i <= 19; i++) { slots.push(`${i}:00`); slots.push(`${i}:30`); } return slots; };
+            const isSlotAvailable = (date, time, professionalId, serviceDuration) => {
+                const timeInMinutes = timeToMinutes(time);
+                // Find professional to check lunch hours
+                const professional = professionals.find(p => p.id === professionalId);
+                
+                if (professional && professional.lunch_start && professional.lunch_end) {
+                    const lunchStart = timeToMinutes(professional.lunch_start);
+                    const lunchEnd = timeToMinutes(professional.lunch_end);
+                    if (timeInMinutes >= lunchStart && timeInMinutes < lunchEnd) {
+                        return { available: false, reason: 'Horário de Almoço' };
+                    }
+                } else {
+                    // Fallback to default lunch hour if none set (optional)
+                    if (timeInMinutes >= timeToMinutes('12:00') && timeInMinutes < timeToMinutes('13:00')) return { available: false, reason: 'Horário de Almoço' };
+                }
+
+                const hasConflict = appointments.some(app => {
+                    if (app.status === 'cancelled' || app.date !== date || app.professional_id !== professionalId) return false;
+                    const appStart = timeToMinutes(app.time); const appEnd = appStart + (serviceDuration || 30);
+                    const slotStart = timeInMinutes; const slotEnd = slotStart + (serviceDuration || 30);
+                    return slotStart < appEnd && slotEnd > appStart;
+                });
+                if (hasConflict) return { available: false, reason: 'Horário Ocupado' };
+                return { available: true };
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-sans selection:bg-detail selection:text-white relative">
+                    <Toast toast={toast} />
+                    <ConfirmModal isOpen={modal.isOpen} text={modal.text} onConfirm={confirmAction} onCancel={() => setModal({ ...modal, isOpen: false })} />
+
+                    <header className="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-border">
+                        <div className="container mx-auto px-4 h-20 flex justify-between items-center">
+                            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('home')}>
+                                <div className="h-10 w-10 bg-detail rounded-lg flex items-center justify-center text-white border border-gray-900 shadow-sm group-hover:scale-105 transition-transform overflow-hidden relative">
+                                    {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" alt="Logo" /> : <Icon name="scissors" />}
+                                </div>
+                                <div><h1 className="text-xl font-bold tracking-tight text-text leading-none">Men's <span className="text-detail">Navalha</span></h1><p className="text-[10px] text-nardo font-medium uppercase tracking-[0.2em]">Barbearia Clássica</p></div>
+                            </div>
+                            <nav className="flex gap-1 md:gap-4 bg-gray-50 p-1 rounded-lg border border-border">
+                                <button onClick={() => setView('home')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'home' || view === 'booking' ? 'bg-white text-detail shadow-sm' : 'text-nardo hover:text-text'}`}>Agendar</button>
+                                <button onClick={() => setView('admin')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'admin' ? 'bg-white text-detail shadow-sm' : 'text-nardo hover:text-text'}`}>Admin</button>
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 container mx-auto p-4 md:p-8 md:pt-12">
+                        {view === 'home' && (
+                            <div className="text-center mt-8 md:mt-16 fade-in pb-16">
+                                <span className="inline-block py-1 px-3 bg-gray-100 text-detail rounded-full text-xs font-bold uppercase tracking-wider mb-6 border border-gray-200">Desde 2015</span>
+                                <h1 className="text-5xl md:text-7xl font-bold mb-6 text-text tracking-tighter">Estilo <span className="text-detail italic font-serif">Impecável</span></h1>
+                                <p className="text-nardo text-lg mb-12 max-w-xl mx-auto leading-relaxed">Experiência premium em cortes clássicos e barba tradicional.</p>
+                                <Button onClick={() => setView('booking')} className="px-8 py-4 text-lg rounded-full shadow-xl mx-auto transform hover:-translate-y-1 transition-transform mb-20 bg-detail text-white hover:bg-detailHover">Agendar Horário</Button>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                                    {[{icon: 'scissors', title: 'Cortes Precisos', desc: 'Técnicas modernas.'}, {icon: 'sparkles', title: 'Toalha Quente', desc: 'Relaxamento total.'}, {icon: 'star', title: 'Ambiente Vip', desc: 'Conforto e Resenha'}].map((feat, idx) => (
+                                        <div key={idx} className="bg-surface p-8 rounded-2xl border border-border shadow-soft hover:shadow-lg transition-all group"><div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 text-text group-hover:bg-detail group-hover:text-white transition-colors border border-border"><Icon name={feat.icon} className="w-6 h-6" /></div><h3 className="font-bold text-lg mb-2 text-text">{feat.title}</h3><p className="text-sm text-nardo">{feat.desc}</p></div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {view === 'booking' && (
+                            services.length > 0 ? 
+                            <ClientBooking step={step} setStep={setStep} bookingData={bookingData} setBookingData={setBookingData} confirmBooking={confirmBooking} generateTimeSlots={generateTimeSlots} isSlotAvailable={isSlotAvailable} services={services} professionals={professionals} />
+                            : <div className="text-center py-20 text-nardo">Carregando serviços... (Ou configure no painel Admin)</div>
+                        )}
+                        {view === 'admin' && !isAdminLoggedIn && <AdminLogin onLogin={(p) => p === 'admin' ? setIsAdminLoggedIn(true) : showToast('Senha incorreta.', 'error')} />}
+                        {view === 'admin' && isAdminLoggedIn && <AdminPanel appointments={appointments} updateStatus={updateStatus} deleteAppointment={deleteAppointment} startEdit={startEdit} exportPDF={exportPDF} exportExcel={exportExcel} clearAllData={clearAllData} onLogout={() => { setIsAdminLoggedIn(false); setView('home'); }} services={services} onAddService={handleAddService} onUpdateService={handleUpdateService} onDeleteService={handleDeleteService} professionals={professionals} onAddPro={handleAddPro} onUpdatePro={handleUpdatePro} onDeletePro={handleDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} />}
+                    </main>
+
+                    <footer className="bg-bg text-center py-8 text-nardo text-xs font-medium border-t border-border"><p className="opacity-60">&copy; 2025 Men's Navalha Barber Shop</p></footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
