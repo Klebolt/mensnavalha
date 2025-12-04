@@ -156,6 +156,69 @@
             );
         };
 
+        // --- COMPONENTES DE MODAL RESPONSIVOS ---
+        
+        // Modal de Senha para Configurações (NOVO COMPONENTE)
+        const PasswordModal = ({ isOpen, onClose, onConfirm }) => {
+            const [pass, setPass] = useState('');
+            
+            // Focar no input quando abrir
+            useEffect(() => { if(isOpen) setPass(''); }, [isOpen]);
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 fade-in">
+                    <div className="bg-surface rounded-2xl shadow-2xl max-w-xs w-full p-6 border border-border animate-fade-in-up">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-detail mx-auto border border-gray-200">
+                            <Icon name="lock" className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-bold text-text text-center mb-2">Área Restrita</h3>
+                        <p className="text-nardo text-center text-xs mb-4">Digite a senha para acessar as configurações.</p>
+                        <form onSubmit={(e) => { e.preventDefault(); onConfirm(pass); }}>
+                            <input 
+                                type="password" 
+                                className="w-full p-3 bg-white border border-border rounded-lg mb-4 focus:ring-2 focus:ring-detail outline-none text-center" 
+                                placeholder="Senha" 
+                                value={pass} 
+                                onChange={e => setPass(e.target.value)} 
+                                autoFocus 
+                            />
+                            <div className="flex gap-2">
+                                <Button type="button" variant="secondary" onClick={onClose} className="flex-1 justify-center">Voltar</Button>
+                                <Button type="submit" className="flex-1 justify-center">Acessar</Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- COMPONENTE POPUP PROMOÇÃO ---
+        const PromoPopup = ({ promo, onClose }) => {
+            if (!promo || !promo.active) return null;
+            return (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 fade-in">
+                    <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden border-2 border-detail">
+                        <button onClick={onClose} className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white rounded-full text-detail z-10 transition-colors"><Icon name="x" className="w-5 h-5" /></button>
+                        {promo.imageUrl ? (
+                            <img src={promo.imageUrl} alt="Promoção" className="w-full h-auto object-cover max-h-[300px]" />
+                        ) : (
+                            <div className="bg-detail p-8 text-center text-white">
+                                <Icon name="tag" className="w-12 h-12 mx-auto mb-4" />
+                                <h3 className="text-2xl font-bold uppercase tracking-widest">Promoção</h3>
+                            </div>
+                        )}
+                        <div className="p-6 text-center">
+                            <h3 className="text-xl font-bold text-text mb-2">{promo.title || "Oferta Especial!"}</h3>
+                            <p className="text-nardo text-sm mb-6 leading-relaxed">{promo.text}</p>
+                            <Button onClick={onClose} className="w-full justify-center">Aproveitar</Button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const AdminLogin = ({ onLogin, showToast }) => {
             const [pass, setPass] = useState('');
             return (
@@ -268,7 +331,7 @@
             );
         };
 
-        const ConfigPanel = ({ services, onAddService, onUpdateService, onDeleteService, professionals, onAddPro, onUpdatePro, onDeletePro, requestConfirm, showToast, logoUrl, setLogoUrl }) => {
+        const ConfigPanel = ({ services, onAddService, onUpdateService, onDeleteService, professionals, onAddPro, onUpdatePro, onDeletePro, requestConfirm, showToast, logoUrl, setLogoUrl, promoConfig, setPromoConfig }) => {
             const [srvForm, setSrvForm] = useState(null);
             const [proForm, setProForm] = useState(null);
             const iconOptions = ['scissors', 'user', 'zap', 'sparkles', 'star', 'eye', 'anchor', 'crown'];
@@ -330,18 +393,76 @@
                 }
             };
 
+            const handlePromoImageChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setPromoConfig({ ...promoConfig, imageUrl: reader.result });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
             return (
                 <div className="flex flex-col gap-6">
                     {/* --- LOGO --- */}
-                    <div className="bg-surface p-6 rounded-2xl border border-border shadow-soft">
-                        <h3 className="font-bold text-lg text-text mb-4 flex items-center gap-2"><Icon name="image" /> Identidade Visual</h3>
-                        <div className="flex flex-col gap-3">
-                            <Input label="URL da Logo (Imagem)" placeholder="https://exemplo.com/sua-logo.png" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-nardo font-medium">Ou selecione do dispositivo:</span>
-                                <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-sm text-nardo file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-detail file:text-white hover:file:bg-gray-800 cursor-pointer" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-surface p-6 rounded-2xl border border-border shadow-soft">
+                            <h3 className="font-bold text-lg text-text mb-4 flex items-center gap-2"><Icon name="image" /> Identidade Visual</h3>
+                            <div className="flex flex-col gap-3">
+                                <Input label="URL da Logo (Imagem)" placeholder="https://exemplo.com/sua-logo.png" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-nardo font-medium">Ou selecione do dispositivo:</span>
+                                    <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-sm text-nardo file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-detail file:text-white hover:file:bg-gray-800 cursor-pointer" />
+                                </div>
+                                <p className="text-xs text-nardo mt-1">A imagem será salva automaticamente no navegador.</p>
                             </div>
-                            <p className="text-xs text-nardo mt-1">A imagem será salva automaticamente no navegador.</p>
+                        </div>
+
+                        {/* --- PROMOÇÃO (NOVO) --- */}
+                        <div className="bg-surface p-6 rounded-2xl border border-border shadow-soft">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-bold text-lg text-text flex items-center gap-2"><Icon name="tag" /> Promoção</h3>
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" className="sr-only peer" checked={promoConfig.active} onChange={e => setPromoConfig({...promoConfig, active: e.target.checked})} />
+                                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-detail"></div>
+                                </label>
+                            </div>
+                            
+                            {promoConfig.active && (
+                                <div className="space-y-3 animate-fade-in">
+                                    <Input label="Título da Promoção" placeholder="Ex: Semana Maluca!" value={promoConfig.title} onChange={e => setPromoConfig({...promoConfig, title: e.target.value})} />
+                                    <Input label="Texto Descritivo" placeholder="Desconto de 20% em..." value={promoConfig.text} onChange={e => setPromoConfig({...promoConfig, text: e.target.value})} />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input label="Início" type="date" value={promoConfig.startDate} onChange={e => setPromoConfig({...promoConfig, startDate: e.target.value})} />
+                                        <Input label="Fim" type="date" value={promoConfig.endDate} onChange={e => setPromoConfig({...promoConfig, endDate: e.target.value})} />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs uppercase font-bold text-nardo ml-1">Imagem da Promoção</label>
+                                        {/* ALTERAÇÃO AQUI: Lógica para mostrar preview e botão de remover */}
+                                        {promoConfig.imageUrl ? (
+                                            <div className="flex items-center gap-3 p-3 border border-border rounded-lg bg-gray-50">
+                                                <img src={promoConfig.imageUrl} className="w-12 h-12 object-cover rounded border border-border" alt="Preview" />
+                                                <span className="text-xs text-nardo flex-1 truncate">Imagem Selecionada</span>
+                                                <Button variant="danger" onClick={() => setPromoConfig({...promoConfig, imageUrl: ''})} className="p-2 h-auto" title="Remover Imagem">
+                                                    <Icon name="trash-2" className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <input type="file" accept="image/*" onChange={handlePromoImageChange} className="block w-full text-sm text-nardo file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-detail file:text-white hover:file:bg-gray-800 cursor-pointer" />
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs uppercase font-bold text-nardo ml-1">Onde Mostrar?</label>
+                                        <select className="w-full p-3 bg-white border border-border rounded-lg text-sm text-text outline-none" value={promoConfig.showOn} onChange={e => setPromoConfig({...promoConfig, showOn: e.target.value})}>
+                                            <option value="home">Tela Principal (Pop-up)</option>
+                                            <option value="services">Tela de Serviços (Topo)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                            {!promoConfig.active && <p className="text-sm text-nardo">Ative para configurar uma campanha promocional.</p>}
                         </div>
                     </div>
 
@@ -452,10 +573,13 @@
         };
 
         // --- ADMIN PANEL P&B ---
-        const AdminPanel = ({ appointments, updateStatus, deleteAppointment, startEdit, exportPDF, exportExcel, clearAllData, onLogout, services, onAddService, onUpdateService, onDeleteService, professionals, onAddPro, onUpdatePro, onDeletePro, requestConfirm, showToast, logoUrl, setLogoUrl }) => {
+        const AdminPanel = ({ appointments, updateStatus, deleteAppointment, startEdit, exportPDF, exportExcel, clearAllData, onLogout, services, onAddService, onUpdateService, onDeleteService, professionals, onAddPro, onUpdatePro, onDeletePro, requestConfirm, showToast, logoUrl, setLogoUrl, promoConfig, setPromoConfig }) => {
             const [adminTab, setAdminTab] = useState('active');
             const [selectedProId, setSelectedProId] = useState(null);
             
+            // Estado para o modal de senha da config
+            const [showConfigPasswordModal, setShowConfigPasswordModal] = useState(false);
+
             // Ícones sempre visíveis
             useEffect(() => { lucide.createIcons(); });
 
@@ -469,8 +593,32 @@
                 return 'bg-white text-text border-2 border-detail font-bold'; 
             };
 
+            const verifyConfigPassword = (inputPass) => {
+                // ==============================================================================
+                // SENHA DA PÁGINA DE CONFIGURAÇÕES - ALTERE A SENHA ABAIXO PARA MUDAR O ACESSO
+                // ==============================================================================
+                const configPassword = 'admin'; 
+                // ==============================================================================
+                
+                if (inputPass === configPassword) {
+                    setAdminTab('config'); 
+                    setSelectedProId(null);
+                    setShowConfigPasswordModal(false);
+                } else {
+                    showToast("Senha incorreta!", "error");
+                }
+            };
+
             return (
                 <div className="max-w-6xl mx-auto fade-in">
+                    
+                    {/* Modal de Senha para Configurações */}
+                    <PasswordModal 
+                        isOpen={showConfigPasswordModal} 
+                        onClose={() => setShowConfigPasswordModal(false)} 
+                        onConfirm={verifyConfigPassword} 
+                    />
+
                     <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-6">
                         <div><h2 className="text-3xl font-bold text-text tracking-tight">Painel Admin</h2><p className="text-nardo mt-1">Gestão da Barbearia</p></div>
                         <div className="flex gap-3 items-center">
@@ -488,23 +636,15 @@
                         <div className="flex border-b border-border bg-gray-50/50">{['active', 'history', 'team', 'config'].map(t => (
                             <button key={t} onClick={() => { 
                                 if (t === 'config') {
-                                    // ==============================================================================
-                                    // SENHA DA PÁGINA DE CONFIGURAÇÕES - ALTERE A SENHA ABAIXO PARA MUDAR O ACESSO
-                                    // ==============================================================================
-                                    const configPassword = 'admin'; 
-                                    // ==============================================================================
-                                    const input = prompt("Digite a senha de administrador:");
-                                    if (input !== configPassword) {
-                                        showToast("Senha incorreta!", "error");
-                                        return;
-                                    }
+                                    setShowConfigPasswordModal(true); // Abre o modal em vez de prompt
+                                } else {
+                                    setAdminTab(t); 
+                                    setSelectedProId(null); 
                                 }
-                                setAdminTab(t); 
-                                setSelectedProId(null); 
                             }} className={`flex-1 py-4 text-center font-medium text-sm transition-colors relative uppercase tracking-wider ${adminTab === t ? 'text-detail bg-surface' : 'text-nardo hover:text-text'}`}>{t === 'active' ? 'Fila' : (t === 'history' ? 'Histórico' : (t === 'team' ? 'Equipe' : 'Config'))}{adminTab === t && <div className="absolute top-0 left-0 w-full h-0.5 bg-detail"></div>}</button>
                         ))}</div>
                         <div className="p-6 bg-surface min-h-[400px]">
-                            {adminTab === 'config' && <ConfigPanel services={services} onAddService={onAddService} onUpdateService={onUpdateService} onDeleteService={onDeleteService} professionals={professionals} onAddPro={onAddPro} onUpdatePro={onUpdatePro} onDeletePro={onDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} />}
+                            {adminTab === 'config' && <ConfigPanel services={services} onAddService={onAddService} onUpdateService={onUpdateService} onDeleteService={onDeleteService} professionals={professionals} onAddPro={onAddPro} onUpdatePro={onUpdatePro} onDeletePro={onDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} promoConfig={promoConfig} setPromoConfig={setPromoConfig} />}
                             {adminTab === 'team' && (selectedProId ? <BarberDashboard professional={professionals.find(p => p.id === selectedProId)} appointments={appointments} updateStatus={updateStatus} deleteAppointment={deleteAppointment} onBack={() => setSelectedProId(null)} /> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{professionals.map(pro => (<div key={pro.id} onClick={() => setSelectedProId(pro.id)} className="bg-white border border-border rounded-xl p-6 shadow-sm hover:border-gray-400 hover:shadow-md transition-all cursor-pointer group flex flex-col items-center text-center"><div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-3xl font-bold text-nardo mb-4 group-hover:bg-gray-100 group-hover:text-detail transition-colors border border-border">{pro.name.charAt(0)}</div><h3 className="font-bold text-lg text-text mb-1">{pro.name}</h3><p className="text-xs text-nardo mb-4">{pro.specialty}</p><div className="w-full pt-4 border-t border-border flex justify-between items-center text-xs text-gray-400"><span className="flex items-center gap-1"><Icon name="calendar-days" className="w-3 h-3" /> Agenda</span><Icon name="chevron-right" className="w-3 h-3" /></div></div>))}</div>)}
                             {(adminTab === 'active' || adminTab === 'history') && (activeList.length === 0 ? <div className="flex flex-col items-center justify-center py-32 text-nardo"><div className="p-4 bg-gray-50 rounded-full mb-4 opacity-50 border border-border"><Icon name="scissors" className="w-8 h-8" /></div><p className="font-medium">Nenhum agendamento.</p></div> : <div className="divide-y divide-border">{activeList.map(app => (<div key={app.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 group rounded-lg"><div className="flex-1"><div className="flex items-center gap-3 mb-2"><span className="font-bold text-xl text-text tabular-nums">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 border border-border rounded text-nardo">{app.date ? app.date.split('-').reverse().join('/') : app.date}</span><span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide border ${getBadgeStyle(app.status)}`}>{app.status === 'pending' ? 'Aguardando' : (app.status === 'finished' ? 'Finalizado' : 'Cancelado')}</span></div><div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4"><div><h4 className="font-semibold text-text">{app.client_name}</h4><p className="text-xs text-nardo flex items-center gap-1"><Icon name="phone" className="w-3 h-3" /> {app.client_phone}</p></div><span className="hidden sm:inline text-gray-300">|</span><p className="text-sm text-nardo">{app.service_name}</p><span className="hidden sm:inline text-gray-300">|</span><div className="flex items-center gap-1 text-sm text-nardo"><Icon name="user" className="w-3 h-3" /> {app.professional_name}</div></div></div><div className="flex gap-2">{adminTab === 'active' && (<><Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="px-3 hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => startEdit(app)} className="px-3 hover:bg-gray-200" title="Editar"><Icon name="pencil" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button></>)}{adminTab === 'history' && (<Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>)}</div></div>))}</div>)}
                         </div>
@@ -520,6 +660,17 @@
             const [appointments, setAppointments] = useState([]);
             const [services, setServices] = useState([]);
             const [professionals, setProfessionals] = useState([]);
+
+            // Estado de Promoção
+            const [promoConfig, setPromoConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('barber_promo');
+                    return saved ? JSON.parse(saved) : { active: false, title: '', text: '', startDate: '', endDate: '', imageUrl: '', showOn: 'home' };
+                } catch (e) {
+                    return { active: false, title: '', text: '', startDate: '', endDate: '', imageUrl: '', showOn: 'home' };
+                }
+            });
+            const [showPromoPopup, setShowPromoPopup] = useState(false);
 
             const [step, setStep] = useState(1);
             const [bookingData, setBookingData] = useState({ service: null, professional: null, date: '', time: '', clientName: '', clientPhone: '' });
@@ -553,7 +704,25 @@
             }, []);
 
             useEffect(() => { localStorage.setItem('barber_logo', logoUrl); }, [logoUrl]);
-            useEffect(() => { lucide.createIcons(); }, [view, step, appointments, services, professionals]);
+            useEffect(() => { localStorage.setItem('barber_promo', JSON.stringify(promoConfig)); }, [promoConfig]);
+            
+            // Lógica para mostrar o popup de promoção
+            useEffect(() => {
+                if (view === 'home' && promoConfig.active && promoConfig.showOn === 'home') {
+                    const now = new Date();
+                    const start = promoConfig.startDate ? new Date(promoConfig.startDate) : null;
+                    const end = promoConfig.endDate ? new Date(promoConfig.endDate) : null;
+                    
+                    if ((!start || now >= start) && (!end || now <= new Date(end.getTime() + 86400000))) {
+                        // Delay para não ser intrusivo demais logo no render
+                        setTimeout(() => setShowPromoPopup(true), 1000);
+                    }
+                } else {
+                    setShowPromoPopup(false);
+                }
+            }, [view, promoConfig]);
+
+            useEffect(() => { lucide.createIcons(); }, [view, step, appointments, services, professionals, promoConfig]);
 
             const showToast = (text, type = 'success') => { setToast({ show: true, text, type }); setTimeout(() => setToast({ show: false, text: '', type: 'success' }), 3000); };
             const requestConfirm = (text, action) => setModal({ isOpen: true, text, action });
@@ -678,8 +847,8 @@
             };
 
             const clearAllData = () => { 
-                requestConfirm("Isso apagará o localStorage (Logo).", () => { 
-                    setLogoUrl(''); localStorage.clear(); showToast("Reset local."); 
+                requestConfirm("Isso apagará o localStorage (Logo e Promoção).", () => { 
+                    setLogoUrl(''); setPromoConfig({ active: false, title: '', text: '', startDate: '', endDate: '', imageUrl: '', showOn: 'home' }); localStorage.clear(); showToast("Reset local."); 
                 }); 
             };
 
@@ -717,6 +886,8 @@
                 <div className="min-h-screen flex flex-col font-sans selection:bg-detail selection:text-white relative">
                     <Toast toast={toast} />
                     <ConfirmModal isOpen={modal.isOpen} text={modal.text} onConfirm={confirmAction} onCancel={() => setModal({ ...modal, isOpen: false })} />
+                    
+                    {showPromoPopup && <PromoPopup promo={promoConfig} onClose={() => setShowPromoPopup(false)} />}
 
                     <header className="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-border">
                         <div className="container mx-auto px-4 h-20 flex justify-between items-center">
@@ -748,12 +919,25 @@
                             </div>
                         )}
                         {view === 'booking' && (
-                            services.length > 0 ? 
-                            <ClientBooking step={step} setStep={setStep} bookingData={bookingData} setBookingData={setBookingData} confirmBooking={confirmBooking} generateTimeSlots={generateTimeSlots} isSlotAvailable={isSlotAvailable} services={services} professionals={professionals} />
-                            : <div className="text-center py-20 text-nardo">Carregando serviços... (Ou configure no painel Admin)</div>
+                            <>
+                                {promoConfig.active && promoConfig.showOn === 'services' && isPromoValid() && (
+                                    <div className="bg-detail text-white p-4 rounded-xl mb-8 flex items-center justify-between shadow-lg animate-fade-in">
+                                        <div className="flex items-center gap-4">
+                                            {promoConfig.imageUrl ? <img src={promoConfig.imageUrl} className="w-16 h-16 rounded-lg object-cover border border-white/20" /> : <Icon name="tag" className="w-8 h-8" />}
+                                            <div>
+                                                <h3 className="font-bold text-lg">{promoConfig.title || "Promoção!"}</h3>
+                                                <p className="text-sm opacity-90">{promoConfig.text}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {services.length > 0 ? 
+                                    <ClientBooking step={step} setStep={setStep} bookingData={bookingData} setBookingData={setBookingData} confirmBooking={confirmBooking} generateTimeSlots={generateTimeSlots} isSlotAvailable={isSlotAvailable} services={services} professionals={professionals} />
+                                : <div className="text-center py-20 text-nardo">Carregando serviços... (Ou configure no painel Admin)</div>}
+                            </>
                         )}
                         {view === 'admin' && !isAdminLoggedIn && <AdminLogin onLogin={(p) => p === 'admin' ? setIsAdminLoggedIn(true) : showToast('Senha incorreta.', 'error')} />}
-                        {view === 'admin' && isAdminLoggedIn && <AdminPanel appointments={appointments} updateStatus={updateStatus} deleteAppointment={deleteAppointment} startEdit={startEdit} exportPDF={exportPDF} exportExcel={exportExcel} clearAllData={clearAllData} onLogout={() => { setIsAdminLoggedIn(false); setView('home'); }} services={services} onAddService={handleAddService} onUpdateService={handleUpdateService} onDeleteService={handleDeleteService} professionals={professionals} onAddPro={handleAddPro} onUpdatePro={handleUpdatePro} onDeletePro={handleDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} />}
+                        {view === 'admin' && isAdminLoggedIn && <AdminPanel appointments={appointments} updateStatus={updateStatus} deleteAppointment={deleteAppointment} startEdit={startEdit} exportPDF={exportPDF} exportExcel={exportExcel} clearAllData={clearAllData} onLogout={() => { setIsAdminLoggedIn(false); setView('home'); }} services={services} onAddService={handleAddService} onUpdateService={handleUpdateService} onDeleteService={handleDeleteService} professionals={professionals} onAddPro={handleAddPro} onUpdatePro={handleUpdatePro} onDeletePro={handleDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} promoConfig={promoConfig} setPromoConfig={setPromoConfig} />}
                     </main>
 
                     <footer className="bg-bg text-center py-8 text-nardo text-xs font-medium border-t border-border"><p className="opacity-60">&copy; 2025 Men's Navalha Barber Shop</p></footer>
