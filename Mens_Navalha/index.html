@@ -66,6 +66,35 @@
         // --- HELPERS ---
         const timeToMinutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
+        // --- INTEGRAÇÃO WHATSAPP (NOVA FUNCIONALIDADE) ---
+        const formatPhoneForWhatsapp = (phone) => {
+            // Remove caracteres não numéricos
+            let cleanPhone = phone.replace(/\D/g, '');
+            // Se tiver 10 ou 11 dígitos, assume Brasil e adiciona 55
+            if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+                cleanPhone = '55' + cleanPhone;
+            }
+            return cleanPhone;
+        };
+
+        const getWhatsappLink = (app) => {
+            const phone = formatPhoneForWhatsapp(app.client_phone);
+            const firstName = app.client_name.split(' ')[0];
+            const dateFormatted = app.date.split('-').reverse().join('/');
+            
+            // Lógica para definir saudação baseada no horário
+            const hour = parseInt(app.time.split(':')[0]);
+            let greeting = 'Olá';
+            if (hour < 12) greeting = 'Bom dia';
+            else if (hour < 18) greeting = 'Boa tarde';
+            else greeting = 'Boa noite';
+
+            // Mensagem automática de lembrete
+            const text = `${greeting} ${firstName}! 👋%0A%0APassando para lembrar do seu agendamento na *Men's Navalha*:%0A%0A🗓 Data: *${dateFormatted}*%0A⏰ Horário: *${app.time}*%0A✂️ Serviço: ${app.service_name}%0A💈 Profissional: ${app.professional_name}%0A%0APodemos confirmar sua presença?`;
+            
+            return `https://wa.me/${phone}?text=${text}`;
+        };
+
         // --- COMPONENTES UI ---
         const Icon = ({ name, className }) => <i data-lucide={name} className={`w-5 h-5 ${className}`}></i>;
         const Skeleton = ({ className }) => <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>;
@@ -77,6 +106,7 @@
                 secondary: "bg-surface border-border text-nardo hover:text-detail hover:border-detail hover:bg-gray-50",
                 danger: "bg-white border-2 border-detail text-detail hover:bg-gray-100 font-bold",
                 success: "bg-surface border-border text-text hover:border-detail hover:bg-gray-50",
+                whatsapp: "bg-green-500 text-white border-green-600 hover:bg-green-600 shadow-sm", // Novo estilo WhatsApp
             };
             return <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} {...props}>{children}</button>;
         };
@@ -547,6 +577,8 @@
                         <div className="flex items-center gap-2"><span className="font-bold text-lg text-text">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 rounded text-nardo">{app.date.split('-').reverse().join('/')}</span></div>
                         {showActions && (
                             <div className="flex gap-1">
+                                {/* NOVO: Botão de Lembrete WhatsApp no Dashboard */}
+                                <Button variant="whatsapp" onClick={() => window.open(getWhatsappLink(app), '_blank')} className="p-1.5 h-auto hover:bg-green-600" title="Enviar Lembrete"><Icon name="message-circle" className="w-4 h-4" /></Button>
                                 <Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="p-1.5 h-auto hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button>
                                 <Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="p-1.5 h-auto hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>
                             </div>
@@ -640,7 +672,10 @@
                         <div className="p-6 bg-surface min-h-[400px]">
                             {adminTab === 'config' && <ConfigPanel services={services} onAddService={onAddService} onUpdateService={onUpdateService} onDeleteService={onDeleteService} professionals={professionals} onAddPro={onAddPro} onUpdatePro={onUpdatePro} onDeletePro={onDeletePro} requestConfirm={requestConfirm} showToast={showToast} logoUrl={logoUrl} setLogoUrl={setLogoUrl} promoConfig={promoConfig} setPromoConfig={setPromoConfig} />}
                             {adminTab === 'team' && (selectedProId ? <BarberDashboard professional={professionals.find(p => p.id === selectedProId)} appointments={appointments} updateStatus={updateStatus} deleteAppointment={deleteAppointment} onBack={() => setSelectedProId(null)} /> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{professionals.map(pro => (<div key={pro.id} onClick={() => setSelectedProId(pro.id)} className="bg-white border border-border rounded-xl p-6 shadow-sm hover:border-gray-400 hover:shadow-md transition-all cursor-pointer group flex flex-col items-center text-center"><div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-3xl font-bold text-nardo mb-4 group-hover:bg-gray-100 group-hover:text-detail transition-colors border border-border">{pro.name.charAt(0)}</div><h3 className="font-bold text-lg text-text mb-1">{pro.name}</h3><p className="text-xs text-nardo mb-4">{pro.specialty}</p><div className="w-full pt-4 border-t border-border flex justify-between items-center text-xs text-gray-400"><span className="flex items-center gap-1"><Icon name="calendar-days" className="w-3 h-3" /> Agenda</span><Icon name="chevron-right" className="w-3 h-3" /></div></div>))}</div>)}
-                            {(adminTab === 'active' || adminTab === 'history') && (activeList.length === 0 ? <div className="flex flex-col items-center justify-center py-32 text-nardo"><div className="p-4 bg-gray-50 rounded-full mb-4 opacity-50 border border-border"><Icon name="scissors" className="w-8 h-8" /></div><p className="font-medium">Nenhum agendamento.</p></div> : <div className="divide-y divide-border">{activeList.map(app => (<div key={app.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 group rounded-lg"><div className="flex-1"><div className="flex items-center gap-3 mb-2"><span className="font-bold text-xl text-text tabular-nums">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 border border-border rounded text-nardo">{app.date ? app.date.split('-').reverse().join('/') : app.date}</span><span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide border ${getBadgeStyle(app.status)}`}>{app.status === 'pending' ? 'Aguardando' : (app.status === 'finished' ? 'Finalizado' : 'Cancelado')}</span></div><div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4"><div><h4 className="font-semibold text-text">{app.client_name}</h4><p className="text-xs text-nardo flex items-center gap-1"><Icon name="phone" className="w-3 h-3" /> {app.client_phone}</p></div><span className="hidden sm:inline text-gray-300">|</span><p className="text-sm text-nardo">{app.service_name}</p><span className="hidden sm:inline text-gray-300">|</span><div className="flex items-center gap-1 text-sm text-nardo"><Icon name="user" className="w-3 h-3" /> {app.professional_name}</div></div></div><div className="flex gap-2">{adminTab === 'active' && (<><Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="px-3 hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => startEdit(app)} className="px-3 hover:bg-gray-200" title="Editar"><Icon name="pencil" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button></>)}{adminTab === 'history' && (<Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>)}</div></div>))}</div>)}
+                            {(adminTab === 'active' || adminTab === 'history') && (activeList.length === 0 ? <div className="flex flex-col items-center justify-center py-32 text-nardo"><div className="p-4 bg-gray-50 rounded-full mb-4 opacity-50 border border-border"><Icon name="scissors" className="w-8 h-8" /></div><p className="font-medium">Nenhum agendamento.</p></div> : <div className="divide-y divide-border">{activeList.map(app => (<div key={app.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 group rounded-lg"><div className="flex-1"><div className="flex items-center gap-3 mb-2"><span className="font-bold text-xl text-text tabular-nums">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 border border-border rounded text-nardo">{app.date ? app.date.split('-').reverse().join('/') : app.date}</span><span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide border ${getBadgeStyle(app.status)}`}>{app.status === 'pending' ? 'Aguardando' : (app.status === 'finished' ? 'Finalizado' : 'Cancelado')}</span></div><div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4"><div><h4 className="font-semibold text-text">{app.client_name}</h4><p className="text-xs text-nardo flex items-center gap-1"><Icon name="phone" className="w-3 h-3" /> {app.client_phone}</p></div><span className="hidden sm:inline text-gray-300">|</span><p className="text-sm text-nardo">{app.service_name}</p><span className="hidden sm:inline text-gray-300">|</span><div className="flex items-center gap-1 text-sm text-nardo"><Icon name="user" className="w-3 h-3" /> {app.professional_name}</div></div></div><div className="flex gap-2">{adminTab === 'active' && (<>
+                                {/* NOVO: Botão de Lembrete WhatsApp na lista principal */}
+                                <Button variant="whatsapp" onClick={() => window.open(getWhatsappLink(app), '_blank')} className="px-3 hover:bg-green-600" title="Lembrete WhatsApp"><Icon name="message-circle" className="w-4 h-4" /></Button>
+                                <Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="px-3 hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => startEdit(app)} className="px-3 hover:bg-gray-200" title="Editar"><Icon name="pencil" className="w-4 h-4" /></Button><Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button></>)}{adminTab === 'history' && (<Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="px-3 hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>)}</div></div>))}</div>)}
                         </div>
                     </div>
                 </div>
@@ -720,8 +755,8 @@
 
             // --- OPERAÇÕES DE BANCO DE DADOS (SUPABASE) ---
             
-            const confirmBooking = async () => { 
-                if (!bookingData.clientName || !bookingData.clientPhone) { showToast("Preencha dados.", "error"); return; } 
+            const confirmBooking = async () => { 
+                if (!bookingData.clientName || !bookingData.clientPhone) { showToast("Preencha dados.", "error"); return; } 
 
                 // 1. VERIFICAÇÃO: Limitar 1 agendamento por cliente no dia
                 const { data: existingClientApps } = await _supabase
@@ -750,7 +785,7 @@
                      return;
                 }
 
-                const newAppointment = { 
+                const newAppointment = { 
                     service_id: bookingData.service.id,
                     service_name: bookingData.service.name,
                     professional_id: bookingData.professional.id,
@@ -760,38 +795,38 @@
                     client_name: bookingData.clientName,
                     client_phone: bookingData.clientPhone,
                     status: 'pending'
-                }; 
+                }; 
                 
                 const { error } = await _supabase.from('appointments').insert([newAppointment]);
                 if (error) {
                     console.error(error);
                     showToast("Erro ao agendar.", "error");
                 } else {
-                    showToast("Agendado com sucesso!"); 
-                    setBookingData({ service: null, professional: null, date: '', time: '', clientName: '', clientPhone: '' }); 
-                    setStep(1); setView('home'); 
+                    showToast("Agendado com sucesso!"); 
+                    setBookingData({ service: null, professional: null, date: '', time: '', clientName: '', clientPhone: '' }); 
+                    setStep(1); setView('home'); 
                 }
             };
 
-            const updateStatus = async (id, newStatus) => { 
+            const updateStatus = async (id, newStatus) => { 
                 const { error } = await _supabase.from('appointments').update({ status: newStatus }).eq('id', id);
-                if (!error) showToast("Status atualizado"); 
+                if (!error) showToast("Status atualizado"); 
             };
             
-            const deleteAppointment = async (id) => { 
+            const deleteAppointment = async (id) => { 
                 const { error } = await _supabase.from('appointments').delete().eq('id', id);
-                if (!error) showToast("Excluído."); 
+                if (!error) showToast("Excluído."); 
             };
 
-            const startEdit = async (app) => { 
-                const newName = prompt("Nome:", app.client_name); 
+            const startEdit = async (app) => { 
+                const newName = prompt("Nome:", app.client_name); 
                 if (newName) {
                     await _supabase.from('appointments').update({ client_name: newName }).eq('id', app.id);
                 }
             };
 
             const handleAddService = async (serviceData) => {
-                const { id, ...data } = serviceData; 
+                const { id, ...data } = serviceData; 
                 const { error } = await _supabase.from('services').insert([data]);
                 if (error) showToast("Erro ao criar.", "error");
             };
@@ -836,10 +871,10 @@
                 if (error) showToast("Erro ao deletar.", "error");
             };
 
-            const clearAllData = () => { 
-                requestConfirm("Isso apagará o localStorage (Logo e Promoção).", () => { 
-                    setLogoUrl(''); setPromoConfig({ active: false, title: '', text: '', startDate: '', endDate: '', imageUrl: '', showOn: 'home' }); localStorage.clear(); showToast("Reset local."); 
-                }); 
+            const clearAllData = () => { 
+                requestConfirm("Isso apagará o localStorage (Logo e Promoção).", () => { 
+                    setLogoUrl(''); setPromoConfig({ active: false, title: '', text: '', startDate: '', endDate: '', imageUrl: '', showOn: 'home' }); localStorage.clear(); showToast("Reset local."); 
+                }); 
             };
 
             const exportPDF = (allData) => {
@@ -848,9 +883,9 @@
                 const doc = new jsPDF();
 
                 // Paleta de Cores
-                const colorBlack = [26, 26, 26]; 
-                const colorGray = [100, 116, 139]; 
-                const colorLight = [241, 245, 249]; 
+                const colorBlack = [26, 26, 26]; 
+                const colorGray = [100, 116, 139]; 
+                const colorLight = [241, 245, 249]; 
 
                 // -- CABEÇALHO --
                 doc.setFillColor(...colorBlack);
@@ -1025,8 +1060,8 @@
                 doc.save('relatorio-gerencial-mens-navalha.pdf');
             };
 
-            const exportExcel = (data) => { 
-                if(!window.XLSX) return; 
+            const exportExcel = (data) => { 
+                if(!window.XLSX) return; 
                 
                 // 1. Prepare Data Buckets
                 const pending = data.filter(a => a.status === 'pending').sort((a,b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
