@@ -541,15 +541,14 @@
             const renderAppCard = (app, showActions = true) => (
                 <div key={app.id} className="p-4 bg-surface border border-border rounded-lg hover:border-gray-300 transition-all flex flex-col gap-3 mb-3 shadow-sm w-full">
                     
-                    {/* CORREÇÃO DO ALINHAMENTO AQUI: "items-center" aplicado no container pai */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2"><span className="font-bold text-lg text-text">{app.time}</span><span className="text-xs font-semibold px-2 py-1 bg-gray-100 rounded text-nardo">{app.date.split('-').reverse().join('/')}</span></div>
                         {showActions && (
-                            /* CORREÇÃO ADICIONAL: "items-center" aplicado no grupo de botões */
+                            /* CORREÇÃO AQUI: Forçando tamanho pequeno e quadrado para os botões */
                             <div className="flex items-center gap-2">
-                                <Button variant="whatsapp" onClick={() => window.open(getWhatsappLink(app), '_blank')} className="p-1.5 h-auto hover:bg-green-600" title="Enviar Lembrete"><Icon name="message-circle" className="w-4 h-4" /></Button>
-                                <Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="p-1.5 h-auto hover:bg-gray-200" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button>
-                                <Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="p-1.5 h-auto hover:bg-gray-200" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>
+                                <Button variant="whatsapp" onClick={() => window.open(getWhatsappLink(app), '_blank')} className="!p-0 w-8 h-8 hover:bg-green-600 rounded-lg" title="Enviar Lembrete"><Icon name="message-circle" className="w-4 h-4" /></Button>
+                                <Button variant="secondary" onClick={() => updateStatus(app.id, 'finished')} className="!p-0 w-8 h-8 hover:bg-gray-200 rounded-lg" title="Finalizar"><Icon name="badge-check" className="w-4 h-4" /></Button>
+                                <Button variant="secondary" onClick={() => deleteAppointment(app.id)} className="!p-0 w-8 h-8 hover:bg-gray-200 rounded-lg" title="Excluir"><Icon name="trash-2" className="w-4 h-4" /></Button>
                             </div>
                         )}
                     </div>
