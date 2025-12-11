@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Men's Navalha | Agendamentos (MySQL)</title>
+    <title>Men's Navalha | Online</title>
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -50,11 +50,11 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-        
+
         // ==========================================================================================
-        // CONFIGURAÇÃO DA API (PYTHON FLASK)
+        // CONFIGURAÇÃO DA API (PYTHONANYWHERE)
         // ==========================================================================================
-        const API_URL = 'http://127.0.0.1:5000';
+        const API_URL = 'https://klebolt.pythonanywhere.com'; 
         // ==========================================================================================
 
         // --- HELPERS ---
@@ -861,21 +861,167 @@
                 if (!window.jspdf) return;
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                // ... (Lógica de PDF mantida, recebe allData que é o estado appointments) ...
-                // Para economizar espaço na resposta, assuma que a lógica de PDF está aqui igual a antes
-                // Apenas renderizando um PDF simples como exemplo se o código anterior for muito longo
-                doc.text("Relatório Men's Navalha", 10, 10);
-                const rows = allData.map(a => [a.date, a.time, a.client_name, a.service_name, a.status]);
-                doc.autoTable({ head: [['Data', 'Hora', 'Cliente', 'Serviço', 'Status']], body: rows });
-                doc.save('relatorio.pdf');
+                
+                // Paleta de Cores
+                const colorBlack = [26, 26, 26]; 
+                const colorGray = [100, 116, 139]; 
+                const colorLight = [241, 245, 249]; 
+
+                // -- CABEÇALHO --
+                doc.setFillColor(...colorBlack);
+                doc.rect(0, 0, 210, 40, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(22);
+                doc.setFont('helvetica', 'bold');
+                doc.text("MEN'S NAVALHA", 14, 20);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text("RELATÓRIO GERENCIAL COMPLETO", 14, 28);
+                doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 34);
+
+                // -- DADOS --
+                const pending = allData.filter(a => a.status === 'pending');
+                const finished = allData.filter(a => a.status === 'finished');
+                const cancelled = allData.filter(a => a.status === 'cancelled');
+                const history = [...finished, ...cancelled].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                const total = allData.length;
+
+                // -- SEÇÃO 1: RESUMO (Cards) --
+                let yPos = 50;
+                const drawCard = (x, label, value) => {
+                    doc.setFillColor(255, 255, 255);
+                    doc.setDrawColor(200, 200, 200);
+                    doc.roundedRect(x, yPos, 40, 25, 3, 3, 'FD');
+                    doc.setFontSize(8);
+                    doc.setTextColor(...colorGray);
+                    doc.text(label, x + 5, yPos + 8);
+                    doc.setFontSize(14);
+                    doc.setTextColor(...colorBlack);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(String(value), x + 5, yPos + 18);
+                };
+
+                drawCard(14, "Total Geral", total);
+                drawCard(60, "Finalizados", finished.length);
+                drawCard(106, "Cancelados", cancelled.length);
+                drawCard(152, "Em Aberto", pending.length);
+
+                yPos += 35;
+                
+                doc.setFontSize(12);
+                doc.setTextColor(...colorBlack);
+                doc.setFont('helvetica', 'bold');
+                doc.text("1. Fila de Espera (Agendamentos em Aberto)", 14, yPos);
+                yPos += 5;
+
+                const pendingRows = pending.map(a => [
+                    a.date.split('-').reverse().join('/'), a.time, a.client_name, a.client_phone, a.service_name, a.professional_name
+                ]);
+
+                doc.autoTable({
+                    head: [["Data", "Hora", "Cliente", "Contato", "Serviço", "Profissional"]],
+                    body: pendingRows,
+                    startY: yPos,
+                    theme: 'grid',
+                    headStyles: { fillColor: colorBlack, textColor: 255, fontStyle: 'bold' },
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    alternateRowStyles: { fillColor: colorLight }
+                });
+
+                yPos = doc.lastAutoTable.finalY + 15;
+                if (yPos > 250) { doc.addPage(); yPos = 20; }
+
+                doc.setFontSize(12);
+                doc.setTextColor(...colorBlack);
+                doc.text("2. Histórico Completo", 14, yPos);
+                yPos += 5;
+
+                const historyRows = history.map(a => [
+                    a.date.split('-').reverse().join('/'), a.time, a.client_name, a.service_name, a.professional_name, a.status === 'finished' ? 'Finalizado' : 'Cancelado'
+                ]);
+
+                doc.autoTable({
+                    head: [["Data", "Hora", "Cliente", "Serviço", "Barbeiro", "Status"]],
+                    body: historyRows,
+                    startY: yPos,
+                    theme: 'grid',
+                    headStyles: { fillColor: colorGray, textColor: 255, fontStyle: 'bold' },
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    alternateRowStyles: { fillColor: colorLight },
+                    didParseCell: function(data) {
+                        if (data.section === 'body' && data.column.index === 5) {
+                            if (data.cell.raw === 'Finalizado') {
+                                data.cell.styles.textColor = [22, 163, 74];
+                                data.cell.styles.fontStyle = 'bold';
+                            } else {
+                                data.cell.styles.textColor = [220, 38, 38];
+                            }
+                        }
+                    }
+                });
+
+                const pageCount = doc.internal.getNumberOfPages();
+                for(let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150);
+                    doc.text('Página ' + i + ' de ' + pageCount, 195, 290, { align: 'right' });
+                }
+
+                doc.save('relatorio-gerencial-mens-navalha.pdf');
             };
 
             const exportExcel = (data) => { 
                 if(!window.XLSX) return; 
-                const ws = XLSX.utils.json_to_sheet(data);
+                
+                const pending = data.filter(a => a.status === 'pending').sort((a,b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+                const history = data.filter(a => ['finished', 'cancelled'].includes(a.status)).sort((a,b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+                const finishedCount = data.filter(a => a.status === 'finished').length;
+                const cancelledCount = data.filter(a => a.status === 'cancelled').length;
+
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Dados");
-                XLSX.writeFile(wb, "dados.xlsx");
+
+                const summaryData = [
+                    ["RELATÓRIO GERENCIAL - MEN'S NAVALHA"],
+                    ["Gerado em:", new Date().toLocaleString('pt-BR')],
+                    [],
+                    ["RESUMO DE PERFORMANCE"],
+                    ["Métrica", "Quantidade"],
+                    ["Total de Agendamentos", data.length],
+                    ["Atendimentos Finalizados", finishedCount],
+                    ["Cancelamentos", cancelledCount],
+                    ["Fila de Espera (Aberto)", pending.length],
+                    [],
+                    ["ÍNDICES"],
+                    ["Taxa de Eficiência (Finalizados/Total Histórico)", history.length ? ((finishedCount / history.length) * 100).toFixed(1) + '%' : '0%']
+                ];
+                const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Dashboard");
+
+                const pendingMapped = pending.map(app => ({
+                    "Data": app.date.split('-').reverse().join('/'),
+                    "Hora": app.time,
+                    "Cliente": app.client_name,
+                    "Telefone": app.client_phone,
+                    "Serviço": app.service_name,
+                    "Profissional": app.professional_name
+                }));
+                const wsPending = XLSX.utils.json_to_sheet(pendingMapped);
+                XLSX.utils.book_append_sheet(wb, wsPending, "Fila de Espera");
+
+                const historyMapped = history.map(app => ({
+                    "Data": app.date.split('-').reverse().join('/'),
+                    "Hora": app.time,
+                    "Cliente": app.client_name,
+                    "Serviço": app.service_name,
+                    "Profissional": app.professional_name,
+                    "Status": app.status === 'finished' ? 'Finalizado' : 'Cancelado'
+                }));
+                const wsHistory = XLSX.utils.json_to_sheet(historyMapped);
+                XLSX.utils.book_append_sheet(wb, wsHistory, "Histórico");
+
+                XLSX.writeFile(wb, "relatorio_mens_navalha_detalhado.xlsx");
             };
 
             const generateTimeSlots = () => { const slots = []; for (let i = 8; i <= 19; i++) { slots.push(`${i}:00`); slots.push(`${i}:30`); } return slots; };
@@ -897,13 +1043,10 @@
                 const hasConflict = appointments.some(app => {
                     if (app.status === 'cancelled' || app.date !== date || app.professional_id !== professionalId) return false;
                     const appStart = timeToMinutes(app.time); 
-                    // Se serviceDuration não estiver definido (ex: novo agendamento), assume 30. Se já existe no banco, usa.
                     const duration = serviceDuration || 30; 
                     const appEnd = appStart + duration;
-                    
                     const slotStart = timeInMinutes; 
                     const slotEnd = slotStart + duration;
-                    
                     return slotStart < appEnd && slotEnd > appStart;
                 });
                 
