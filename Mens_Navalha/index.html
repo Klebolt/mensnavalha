@@ -1165,7 +1165,7 @@
                                 <p className="text-nardo text-lg mb-12 max-w-xl mx-auto leading-relaxed">Experiência premium em cortes clássicos e barba tradicional.</p>
                                 <Button onClick={() => setView('booking')} className="px-8 py-4 text-lg rounded-full shadow-xl mx-auto transform hover:-translate-y-1 transition-transform mb-20 bg-detail text-white hover:bg-detailHover">Agendar Horário</Button>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                                    {[{icon: 'scissors', title: 'Cortes Precisos', desc: 'Técnicas modernas.'}, {icon: 'sparkles', title: 'Toalha Quente', desc: 'Relaxamento total.'}, {icon: 'star', title: 'Ambiente Vip', desc: 'Conforto e Resenha'}].map((feat, idx) => (
+                                    {[{icon: 'scissors', title: 'Cortes Precisos', desc: 'Técnicas modernas.'}, {icon: 'sparkles', title: 'Segurança', desc: 'Profissonais qualificados.'}, {icon: 'star', title: 'Ambiente Vip', desc: 'Conforto e Resenha'}].map((feat, idx) => (
                                         <div key={idx} className="bg-surface p-8 rounded-2xl border border-border shadow-soft hover:shadow-lg transition-all group"><div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 text-text group-hover:bg-detail group-hover:text-white transition-colors border border-border"><Icon name={feat.icon} className="w-6 h-6" /></div><h3 className="font-bold text-lg mb-2 text-text">{feat.title}</h3><p className="text-sm text-nardo">{feat.desc}</p></div>
                                     ))}
                                 </div>
@@ -1203,4 +1203,5 @@
     </script>
 </body>
 </html>
+
 
